@@ -9,6 +9,8 @@ __pycache__/
 dist/
 build/
 .aws-sam/
+# Deployment packages (qrshield_backend.zip, qrshield_frontend.zip)
+*.zip
 
 # Environment files
 .env

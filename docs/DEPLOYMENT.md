@@ -1,165 +1,218 @@
 # QRShield — AWS Serverless Deployment Guide
 
-> **Important Deployment Notice:**  
-> In accordance with safety principles, do not execute cloud deployments or create public cloud resources without explicit user approval. This guide provides comprehensive, step-by-step instructions for deploying QRShield to AWS Lambda when ready.
+This guide documents how QRShield is deployed on AWS: the Python backend on **AWS Lambda** behind a **Function URL**, and the React frontend on **AWS Amplify Hosting**. Every step below was followed for the live deployment.
 
 ---
 
-## 1. AWS Cost & Free Tier Analysis
+## 1. Live Deployment
 
-QRShield was engineered specifically to adhere to the **AWS Free Tier** and avoid any recurring server charges:
+| Component | Value |
+|---|---|
+| **Live website** | **https://main.d3pk8ae3axmish.amplifyapp.com** |
+| **Backend API (Lambda Function URL)** | `https://3ftio4oojnj7qitk7rvfqi6evu0wbvms.lambda-url.ap-southeast-2.on.aws/` |
+| **AWS Region** | Asia Pacific (Sydney) `ap-southeast-2` |
+| **Lambda function** | `QRShield-URL-Analyzer` (Python 3.12, 128 MB, 5 s timeout) |
+| **Amplify app** | `QRShield`, branch `main` (manual deploy, no Git connection) |
+| **CORS lock** | `ALLOWED_ORIGIN=https://main.d3pk8ae3axmish.amplifyapp.com` |
+| **Logs** | CloudWatch log group `/aws/lambda/QRShield-URL-Analyzer` (1-week retention) |
 
-| AWS Service | Free Tier Allowance | QRShield Utilization | Expected Monthly Cost |
+The Function URL is public by design (the website calls it from the visitor's browser). It only analyzes the URL it receives and stores nothing.
+
+```
+Visitor's browser ──HTTPS──► Amplify Hosting (CloudFront CDN) ── serves the React app
+       │
+       └──HTTPS POST {url}──► Lambda Function URL ──► QRShield-URL-Analyzer (Python 3.12)
+                                                          └──► CloudWatch Logs (redacted)
+```
+
+---
+
+## 2. AWS Account & Cost
+
+The deployment runs on an AWS account created on the **Free plan**:
+
+- New accounts receive **USD $100 in credits** at sign-up and can earn **up to $100 more** by completing five activities from the **Explore AWS** widget on the Console Home page (AWS Budgets, Amazon Bedrock playground, a Lambda web app, launching and terminating an EC2 instance, and creating an RDS database).
+- The **Free plan never charges**. It ends after 6 months or when the credits are used up; the account then closes (content is kept for 90 days unless upgraded to a Paid plan).
+
+| AWS Service | Free usage | QRShield usage | Expected cost |
 |---|---|---|---|
-| **AWS Lambda** | 1,000,000 free requests/mo & 3.2M seconds compute | ~100–500 requests for college demo | **$0.00** |
-| **Lambda Function URL** | Built into Lambda (No API Gateway fee) | Direct HTTPS invocation | **$0.00** |
-| **Amazon CloudWatch** | 5 GB ingestion & 5 GB archive | < 10 MB execution logs | **$0.00** |
-| **EC2 / Load Balancers** | *Not used* | *Not used* | **$0.00** |
+| **AWS Lambda** | 1,000,000 requests/month always free | Hundreds of requests for the demo | **$0.00** |
+| **Lambda Function URL** | Included with Lambda (no API Gateway fee) | Direct HTTPS calls | **$0.00** |
+| **AWS Amplify Hosting** | Free tier: 5 GB storage, 15 GB served/month | ~350 KB site | **$0.00** |
+| **Amazon CloudWatch Logs** | 5 GB ingestion/month | A few KB, 1-week retention | **$0.00** |
+| **EC2 / Load Balancers / NAT** | *Not used* | *Not used* | **$0.00** |
 
-*Note: Free tier allowances apply to new and standard accounts, but users should always check their AWS Billing Console.*
-
----
-
-## 2. Pre-Deployment Readiness Checklist
-
-Before initiating any deployment in the AWS Console or CLI, verify each item in this checklist:
-
-- [ ] **1. Python Runtime:** Target `Python 3.12` (or `Python 3.11`). Verified that code uses only standard library (`urllib.parse`, `ipaddress`, `unicodedata`, `json`, `re`, `base64`, `datetime`).
-- [ ] **2. Handler Specification:** Explicitly configured as `lambda_function.lambda_handler`.
-- [ ] **3. Compute Allocation:** Memory set to `128 MB` (lowest cost tier, <15ms execution); Timeout set to `5 seconds` (prevents lingering compute charges).
-- [ ] **4. Function URL Authentication:** Set to `NONE` (enables public browser access without requiring AWS Signature Version 4 signing).
-- [ ] **5. CORS Configuration:**
-  - Allowed Origins: `*` (or your frontend domain, e.g. `http://localhost:5173`)
-  - Allowed Methods: `GET`, `POST`, `OPTIONS` (`GET` is the health check used by the status badge)
-  - Allowed Headers: `Content-Type`, `Authorization`, `X-Requested-With`
-  - Max Age: `86400` seconds
-- [ ] **6. Amazon CloudWatch Logs:** Default execution role has `logs:CreateLogGroup`, `logs:CreateLogStream`, `logs:PutLogEvents`. Verified that URL query parameters and credentials are automatically stripped prior to logging.
-- [ ] **7. Account Eligibility & Quotas:** AWS Lambda Free Tier provides 1,000,000 requests/month and 3,200,000 seconds of compute time indefinitely. Even outside the 12-month new-account window, the Lambda Free Tier is permanent for all standard AWS accounts.
-- [ ] **8. Zero Cloud Spend Guarantee:** No EC2 instances, no VPC NAT gateways, no Application Load Balancers, and no paid third-party threat API subscriptions are used. Total recurring idle cost is **$0.00**.
-- [ ] **9. User Approval Gate:** Confirm user approval before creating AWS resources or generating public endpoints.
+> Set up a **Monthly cost budget** (e.g. $5 with an email alert) in **AWS Budgets** as an extra safety net. This also earns one of the $20 credit activities.
 
 ---
 
-## 3. Packaging the Backend Code
+## 3. Package the Backend
 
-The QRShield backend relies exclusively on the **Python standard library**. It requires no virtual environments or external pip packages for packaging.
+The backend uses only the Python standard library, so the package is just three files.
 
-### Step A: Create Deployment Archive
-From the project root:
 ```bash
-# On Windows PowerShell:
+python3 -m unittest discover -s backend/tests -p "test_*.py"   # must print OK
+cd backend
+zip qrshield_backend.zip lambda_function.py url_analyzer.py rules.py
+unzip -l qrshield_backend.zip      # the 3 files must be at the top level, not in a folder
+```
+On Windows PowerShell:
+```powershell
 cd backend
 Compress-Archive -Path lambda_function.py, url_analyzer.py, rules.py -DestinationPath qrshield_backend.zip -Force
 ```
+
+The zip is a build artifact and is ignored by git (`*.zip` in `.gitignore`).
+
+---
+
+## 4. Create the Lambda Function
+
+1. Sign in to the [AWS Management Console](https://console.aws.amazon.com/) and pick the region (top bar). **Use the same region for every service** (this deployment uses `ap-southeast-2`); resources in another region are not visible.
+2. Open **Lambda → Create function** (the console may label it **Create Event Function**) → **Author from scratch**:
+   - **Function name:** `QRShield-URL-Analyzer`
+   - **Runtime:** **Python 3.12** (the default is Node.js; it must be changed)
+   - **Architecture:** `x86_64` (default) or `arm64`; both work
+   - **Execution role:** leave **Custom execution role** off, so Lambda creates a role with basic permissions (CloudWatch logging only)
+   - Leave **Function URL**, VPC, Durable execution and the other toggles **off**
+3. Click **Create function**.
+4. **Code** tab → **Update ▾ / Upload from → .zip file** → choose `qrshield_backend.zip` → **Save**. This replaces the default "Hello World" file; the editor should then list `lambda_function.py`, `rules.py` and `url_analyzer.py`.
+5. **Runtime settings:** handler must be `lambda_function.lambda_handler` (the default).
+6. **Configuration → General configuration → Edit:** **Memory 128 MB**, **Timeout 5 seconds** → **Save**.
+7. **Test** tab → new event:
+   ```json
+   { "url": "https://paypal.account-verify.xyz/login" }
+   ```
+   Expected: `"statusCode": 200`, and the body contains `"risk_score": 70`, `"risk_level": "High"`, findings `SEC-TLD-009` and `SEC-SPOOF-010`. The log output shows `QRShield processing request for target: https://paypal.account-verify.xyz/login`.
+
+---
+
+## 5. Create the Function URL
+
+1. **Configuration → Function URL → Create function URL**.
+2. **Auth type:** `NONE` (browsers can call it without AWS signing). Lambda automatically attaches the resource-based policy that allows public invocation **only through the Function URL**.
+3. **Invoke mode:** `BUFFERED (default)`.
+4. ⚠️ **Leave "Configure cross-origin resource sharing (CORS)" unticked.**
+   QRShield's handler already sends its own CORS headers and answers the browser's `OPTIONS` preflight itself. If CORS is *also* configured on the Function URL, Lambda adds a second `Access-Control-Allow-Origin` header to every `POST` response, and browsers reject the response ("header contains multiple values"), so every scan fails.
+5. **Save** and copy the Function URL (`https://<url-id>.lambda-url.<region>.on.aws/`).
+
+### Verify from a terminal
 ```bash
-# On Linux / macOS:
-cd backend
-zip -r qrshield_backend.zip lambda_function.py url_analyzer.py rules.py
+URL="https://<url-id>.lambda-url.<region>.on.aws/"     # no space before the closing quote
+
+curl -s $URL
+# {"service": "QRShield", "status": "healthy", "engine_version": "1.3.0", ...}
+
+curl -s -X POST $URL -H "Content-Type: application/json" -d '{"url":"https://paypal.account-verify.xyz/login"}'
+# {"status": "success", "risk_score": 70, "risk_level": "High", ...}
+
+curl -si -X POST $URL -H "Origin: https://example.com" -H "Content-Type: application/json" \
+     -d '{"url":"https://bit.ly/x"}' | grep -ci "access-control-allow-origin"
+# 1   (2 means the Function URL CORS box was ticked: untick it)
 ```
 
-This creates a lightweight `qrshield_backend.zip` (~10 KB).
+> The first request after a quiet period takes ~1 s (Lambda cold start); later requests take milliseconds.
 
 ---
 
-## 3. Creating the AWS Lambda Function
+## 6. Build the Frontend for the Live Backend
 
-You can deploy using the **AWS Management Console** or the **AWS CLI**.
+The backend address is baked into the frontend at build time from `frontend/.env`.
 
-### Option A: AWS Management Console (Recommended for College Project)
+```bash
+cd frontend
+cp .env.example .env
+```
+Set `frontend/.env` to (your own URL, no trailing spaces or quotes):
+```env
+VITE_API_BASE_URL=https://<url-id>.lambda-url.<region>.on.aws/
+VITE_ENABLE_OFFLINE_MOCK=false
+```
+Build and check locally:
+```bash
+npm ci
+npm run build
+npm run preview        # http://localhost:4173 → badge must show "Backend Active"
+```
+Package the build (the **contents** of `dist/`, so `index.html` is at the top level):
+```bash
+cd dist && zip -r ../qrshield_frontend.zip . && cd ..
+unzip -l qrshield_frontend.zip | head
+```
 
-1. **Sign in** to the [AWS Management Console](https://console.aws.amazon.com/).
-2. Select your desired region (e.g., `us-east-1` or `ap-south-1`).
-3. Search for **Lambda** and click **Create function**.
-4. Configure basic information:
-   - **Function name:** `QRShield-URL-Analyzer`
-   - **Runtime:** `Python 3.12` (or `Python 3.11`)
-   - **Architecture:** `x86_64` (or `arm64`)
-   - **Execution role:** *Create a new role with basic Lambda permissions* (grants CloudWatch logging).
-5. Click **Create function**.
-
-### Step B: Upload Code & Set Handler
-1. In the **Code source** tab, click **Upload from** -> **.zip file**.
-2. Select the `qrshield_backend.zip` created in Step 2.
-3. In the **Runtime settings** section, ensure the handler is:
-   ```
-   lambda_function.lambda_handler
-   ```
-4. Navigate to the **Configuration** -> **General configuration** tab:
-   - **Memory:** `128 MB` (minimal allocation, fast execution)
-   - **Timeout:** `5 seconds` (heuristic analysis takes < 5 milliseconds)
-
----
-
-## 4. Enabling Lambda Function URL & CORS
-
-1. Go to the **Configuration** tab and select **Function URL**.
-2. Click **Create function URL**.
-3. Configure settings:
-   - **Auth type:** `NONE` (allows direct HTTPS invocation from the browser without AWS IAM signing keys).
-   - Check **Configure cross-origin resource sharing (CORS)**:
-     - **Allow origin:** `*` (or your specific frontend domain, e.g. `http://localhost:5173`)
-     - **Allow methods:** `GET`, `POST`, `OPTIONS`
-     - **Allow headers:** `content-type`, `authorization`, `x-requested-with`
-     - **Max age:** `86400`
-4. Click **Save**.
-5. Copy the generated **Function URL** (format: `https://<random-id>.lambda-url.<region>.on.aws/`).
+> Do this local preview **before** step 8 (`ALLOWED_ORIGIN`). Once the backend is locked to the Amplify domain, `localhost` can no longer call it.
 
 ---
 
-## 5. Testing the Lambda Function Directly
+## 7. Host the Frontend on AWS Amplify
 
-### In the AWS Lambda Console:
-1. Go to the **Test** tab.
-2. Create a new test event named `TestHighRiskUrl`:
-   ```json
-   {
-     "url": "https://paypal.account-verify.xyz/login"
-   }
-   ```
-3. Click **Test**.
-4. Verify the execution output:
-   - Status code: `200`
-   - Response includes `risk_score: 70`, `risk_level: "High"`, and the findings `SEC-TLD-009` and `SEC-SPOOF-010` (CRITICAL).
+1. Open **AWS Amplify** (same region) → **Create new app** → **Deploy without Git** → **Next**.
+2. **App name:** `QRShield`, **Branch name:** `main`.
+3. **Method:** Drag and drop → upload `frontend/qrshield_frontend.zip` (the zip file, not the `dist` folder) → **Save and deploy**.
+4. After about a minute the app shows **Deployed** with a link such as `https://main.<app-id>.amplifyapp.com`. Amplify serves it over HTTPS through CloudFront and redirects `http://` to `https://`.
+5. Open the link: the badge must show **Backend Active**, and the **Spoofed Brand** preset must score **70 High** with no "Simulation" banner.
+
+### Redeploying after a code change
+- **Backend change:** rebuild `qrshield_backend.zip` (section 3) → Lambda **Code → Upload from → .zip file**.
+- **Frontend change:** rebuild `qrshield_frontend.zip` (section 6) → Amplify app → branch `main` → **Deploy updates** → drag and drop the new zip.
 
 ---
 
-## 6. Connecting the React Frontend
+## 8. Restrict the Backend to the Website (`ALLOWED_ORIGIN`)
 
-1. In `frontend/`, create a `.env` file (or copy `.env.example`):
-   ```bash
-   cp frontend/.env.example frontend/.env
-   ```
-2. Set `VITE_API_BASE_URL` to your copied AWS Lambda Function URL:
-   ```env
-   VITE_API_BASE_URL=https://<your-lambda-url-id>.lambda-url.<region>.on.aws/
-   VITE_ENABLE_OFFLINE_MOCK=false
-   ```
-3. Restart or build the frontend:
-   ```bash
-   cd frontend
-   npm run dev
-   ```
-4. The status badge in the top right of the application will display **Backend Active**.
+By default the handler echoes whichever website calls it. Lock it to the Amplify site:
 
----
+1. **Lambda → QRShield-URL-Analyzer → Configuration → Environment variables → Edit → Add environment variable**
+   - **Key:** `ALLOWED_ORIGIN`
+   - **Value:** `https://main.<app-id>.amplifyapp.com` (exact origin: no trailing `/`, no quotes)
+2. **Save**.
 
-## 7. Inspecting CloudWatch Execution Logs
+Every response now carries `Access-Control-Allow-Origin: https://main.<app-id>.amplifyapp.com`, so a browser on any **other** website refuses to read the response. Verify:
+```bash
+curl -si -X POST $URL -H "Origin: https://evil-site.example" -H "Content-Type: application/json" \
+     -d '{"url":"https://bit.ly/x"}' | grep -i "access-control-allow-origin"
+# access-control-allow-origin: https://main.<app-id>.amplifyapp.com   (not evil-site.example)
+```
 
-1. In the AWS Lambda Console, click the **Monitor** tab.
-2. Click **View CloudWatch logs**.
-3. Select the latest log stream.
-4. Verify that execution logs show sanitized targets (e.g., `QRShield processing request for target: https://example.com/path?[REDACTED_QUERY]`).
-5. Confirm that execution duration is typically between **2 ms – 15 ms**, resulting in virtually zero cost.
+> CORS is enforced by browsers only. Tools like `curl` can still call the API, which is acceptable because the API is read-only and stores nothing.
+>
+> **Local development** keeps using the local Python server: set `VITE_API_BASE_URL=http://127.0.0.1:8000` in `frontend/.env` and run `python backend/local_server.py`.
 
 ---
 
-## 8. Resource Teardown & Cleanup
+## 9. CloudWatch Logs
 
-When the evaluation or project presentation is complete, remove the resources to ensure zero ongoing footprint:
+1. **Lambda → Monitor → View CloudWatch logs** → newest log stream.
+2. Each request logs only a redacted target, e.g. `QRShield processing request for target: https://example.com/login?[REDACTED_QUERY]` (credentials and query strings removed), plus Lambda's own `REPORT … Duration: … ms` line.
+3. **Set retention:** log group `/aws/lambda/QRShield-URL-Analyzer` → **Actions → Edit retention setting → 1 week**. The default is "Never expire", which slowly accumulates storage.
 
-1. Open the [AWS Lambda Console](https://console.aws.amazon.com/lambda/).
-2. Select `QRShield-URL-Analyzer`.
-3. Click **Actions** -> **Delete function**.
-4. Open the [Amazon CloudWatch Console](https://console.aws.amazon.com/cloudwatch/).
-5. Under **Logs** -> **Log groups**, select `/aws/lambda/QRShield-URL-Analyzer`.
-6. Click **Actions** -> **Delete log group(s)**.
+---
+
+## 10. Verification of the Live Deployment
+
+The live site was tested end to end in Google Chrome (headless, automated):
+
+| Check | Result |
+|---|---|
+| HTTPS, `http://` → `https://` redirect, our build served | PASS |
+| Badge shows **Backend Active** (health check reaches Lambda) | PASS |
+| All 8 presets score as documented, analyzed by Lambda (no simulation banner) | PASS |
+| All 8 sample QR images decode and score correctly | PASS |
+| Invalid input rejected in the browser before reaching Lambda | PASS |
+| Copy button, History (view saved result, reload, clear), Methodology tab | PASS |
+| Mobile layout at 390 px and 360 px | PASS |
+| No console errors | PASS (31/31 checks) |
+| Exactly one `Access-Control-Allow-Origin` header per response | PASS |
+| A page on another website calling the backend is blocked by the browser | PASS |
+
+---
+
+## 11. Resource Teardown & Cleanup
+
+When the evaluation is complete, remove the resources (on the Free plan the account also closes automatically after 6 months):
+
+1. **Amplify:** app `QRShield` → **App settings → General settings → Delete app**.
+2. **Lambda:** `QRShield-URL-Analyzer` → **Actions → Delete function** (this also removes its Function URL).
+3. **CloudWatch:** **Logs → Log groups** → `/aws/lambda/QRShield-URL-Analyzer` → **Actions → Delete log group(s)**.
+4. **IAM:** **Roles** → `QRShield-URL-Analyzer-role-…` → **Delete**.
+5. Delete any resources created for the credit activities (EC2 instances, RDS databases) if they are still running.

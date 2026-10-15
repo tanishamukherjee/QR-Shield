@@ -3,16 +3,20 @@
 [![Python Tests](https://img.shields.io/badge/Python%20Tests-36%2F36%20Passing-brightgreen)](docs/TESTING.md)
 [![Frontend](https://img.shields.io/badge/Frontend-React%20%2B%20Vite-blue)](frontend/)
 [![Architecture](https://img.shields.io/badge/Cloud-AWS%20Lambda%20Serverless-orange)](docs/ARCHITECTURE.md)
+[![Live](https://img.shields.io/badge/Live-AWS%20Amplify-success)](https://main.d3pk8ae3axmish.amplifyapp.com)
 [![Status](https://img.shields.io/badge/Project-College%20Submission-teal)](docs/PRESENTATION_OUTLINE.md)
 
 **QRShield** is a serverless cybersecurity web application that protects users against malicious QR codes ("quishing") by performing pre-click static heuristic threat analysis on embedded URLs.
+
+### 🌐 Live Demo: **[https://main.d3pk8ae3axmish.amplifyapp.com](https://main.d3pk8ae3axmish.amplifyapp.com)**
+Hosted on **AWS Amplify**, with the threat engine running on **AWS Lambda** (Sydney, `ap-southeast-2`). Try the 8 test presets, or upload any image from [`sample_qr_codes/`](sample_qr_codes/).
 
 ---
 
 ## 🌟 Key Highlights
 
 - **🔒 Client-Side Privacy (Zero-Knowledge Ingestion):** QR code image decoding runs 100% locally in the browser using HTML5 Canvas and `jsQR`. Images are **never** uploaded to servers or stored on disks.
-- **⚡ AWS Serverless Backend:** Runs on **AWS Lambda** via a direct **Function URL**. Zero EC2 servers, zero idle costs, and automatic scale-to-zero.
+- **⚡ AWS Serverless Backend:** Runs on **AWS Lambda** via a direct **Function URL**, with the frontend on **AWS Amplify Hosting**. Zero EC2 servers, zero idle costs, and automatic scale-to-zero.
 - **🛡️ 16 Deterministic Threat Rules:** Inspects unencrypted HTTP, embedded credentials, raw and disguised IP hosts, custom ports, URL shorteners, brand spoofing, look-alike (typosquatted) brand names, international look-alike characters, and excessive subdomain hierarchies.
 - **🌐 Browser-Equivalent Parsing:** Reads each URL exactly as a browser would (backslash tricks, decimal/hex IPs, punycode), so the analysis matches the real destination.
 - **📊 Transparent Heuristic Scoring:** Generates a deterministic score (0–100) mapped to **Low**, **Medium**, and **High** risk with plain-language explanations and recommended precautions. Any **CRITICAL** deception trick is always High risk.
@@ -25,7 +29,7 @@
 ## 🏗️ Architecture Overview
 
 ```
-User Device (Browser) 
+User Device (Browser) ◄── React app served over HTTPS by AWS Amplify Hosting (CloudFront CDN)
   └─► QR Image Upload 
         └─► HTML5 Canvas + jsQR (Local Client-Side Decoding)
               └─► Extracted URL Payload
@@ -120,14 +124,22 @@ qrshield/
 
 ## ☁️ AWS Cloud Deployment
 
-To deploy QRShield onto AWS Lambda with an HTTPS Function URL:
-1. Review the step-by-step instructions in [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
-2. Package the backend (from `backend/`):
+QRShield is live on AWS:
+
+| Component | Where |
+|---|---|
+| Website | **https://main.d3pk8ae3axmish.amplifyapp.com** (AWS Amplify Hosting) |
+| Backend API | AWS Lambda `QRShield-URL-Analyzer` (Python 3.12) via its Function URL, region `ap-southeast-2` |
+| Logs | Amazon CloudWatch, with credentials and query strings redacted |
+
+The full step-by-step guide is in [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md). In short:
+1. Package the backend (from `backend/`):
    - macOS / Linux: `zip qrshield_backend.zip lambda_function.py url_analyzer.py rules.py`
    - Windows PowerShell: `Compress-Archive -Path lambda_function.py, url_analyzer.py, rules.py -DestinationPath qrshield_backend.zip`
-3. Upload to AWS Lambda (Runtime: Python 3.12, Memory: 128 MB, Handler: `lambda_function.lambda_handler`).
-4. Enable **Function URL** with `Auth type: NONE` and configure CORS (allow `GET`, `POST`, `OPTIONS`).
-5. Point `VITE_API_BASE_URL` in `frontend/.env` to your new Function URL.
+2. Create the Lambda function (Runtime: Python 3.12, Memory: 128 MB, Timeout: 5 s, Handler: `lambda_function.lambda_handler`) and upload the zip.
+3. Create a **Function URL** with `Auth type: NONE`. **Leave its CORS option unticked**: the handler already sends CORS headers, and enabling both makes browsers reject every response.
+4. Set `VITE_API_BASE_URL` in `frontend/.env` to the Function URL, run `npm run build`, zip the contents of `frontend/dist/`, and deploy it on **AWS Amplify → Deploy without Git**.
+5. Set the Lambda environment variable `ALLOWED_ORIGIN` to the Amplify site's address so only the website can call the backend from a browser.
 
 ---
 
@@ -141,5 +153,6 @@ QRShield was developed as an academic engineering prototype. It performs static,
 
 - **Project Title:** QRShield — Cloud-Based QR Code Threat Detection System
 - **College Submission Deadline:** 25 October 2026
-- **Architecture:** Zero-Server AWS Serverless (Lambda Function URL + CloudWatch)
+- **Live Demo:** https://main.d3pk8ae3axmish.amplifyapp.com
+- **Architecture:** Zero-Server AWS Serverless (Amplify Hosting + Lambda Function URL + CloudWatch)
 - **License:** MIT License
