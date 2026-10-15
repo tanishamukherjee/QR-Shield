@@ -11,7 +11,7 @@ import re
 from typing import Dict, Any
 from urllib.parse import urlparse, parse_qsl, urlencode
 
-from url_analyzer import analyze_url, URLValidationError
+from url_analyzer import analyze_url, URLValidationError, ENGINE_VERSION
 
 # Allowed CORS origins can be configured via environment variable
 # Defaults to permissive for development and easily restricted in deployment
@@ -24,7 +24,7 @@ def build_cors_headers(origin: str = "*") -> Dict[str, str]:
     return {
         "Content-Type": "application/json",
         "Access-Control-Allow-Origin": effective_origin,
-        "Access-Control-Allow-Methods": "POST, OPTIONS",
+        "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
         "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Requested-With",
         "Access-Control-Max-Age": "86400",
         "X-Content-Type-Options": "nosniff",
@@ -74,7 +74,20 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             "body": ""
         }
 
-    # 2. Extract payload body
+    # 2. Health check (used by the frontend status badge)
+    if http_method == "GET":
+        return {
+            "statusCode": 200,
+            "headers": cors_headers,
+            "body": json.dumps({
+                "service": "QRShield",
+                "status": "healthy",
+                "engine_version": ENGINE_VERSION,
+                "message": "Send POST requests with {\"url\": \"...\"} to analyze."
+            })
+        }
+
+    # 3. Extract payload body
     body_raw = event.get("body")
     if body_raw is None:
         # Direct Lambda invoke with JSON dict (e.g., from AWS Lambda Console Test)
@@ -120,7 +133,7 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     safe_log_url = sanitize_url_for_logging(target_url)
     print(f"QRShield processing request for target: {safe_log_url}")
 
-    # 3. Execute URL threat analysis
+    # 4. Execute URL threat analysis
     try:
         analysis_result = analyze_url(target_url)
         return {

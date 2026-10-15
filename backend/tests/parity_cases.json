@@ -1,0 +1,386 @@
+{
+  "_comment": "Shared cases checked against BOTH the Python backend (backend/tests/test_parity.py) and the JS offline simulation (frontend/verify_parity.js). Only rule IDs and scores are compared.",
+  "cases": [
+    {
+      "name": "Preset: safe HTTPS",
+      "url": "https://www.cambridge.org/research",
+      "expected_rule_ids": [],
+      "expected_score": 0
+    },
+    {
+      "name": "Preset: plain HTTP",
+      "url": "http://library.univ-portal.edu/books",
+      "expected_rule_ids": [
+        "SEC-SCHEME-001"
+      ],
+      "expected_score": 20
+    },
+    {
+      "name": "Preset: URL shortener",
+      "url": "https://bit.ly/3SecureLogin",
+      "expected_rule_ids": [
+        "SEC-SHORT-005"
+      ],
+      "expected_score": 30
+    },
+    {
+      "name": "Preset: raw IP + custom port",
+      "url": "http://192.168.1.100:8080/admin",
+      "expected_rule_ids": [
+        "SEC-SCHEME-001",
+        "SEC-IP-003",
+        "SEC-PORT-004"
+      ],
+      "expected_score": 75
+    },
+    {
+      "name": "Preset: spoofed brand",
+      "url": "https://paypal.account-verify.xyz/login",
+      "expected_rule_ids": [
+        "SEC-TLD-009",
+        "SEC-SPOOF-010"
+      ],
+      "expected_score": 70
+    },
+    {
+      "name": "Preset: embedded credentials",
+      "url": "https://root:admin123@web-router.net/auth",
+      "expected_rule_ids": [
+        "SEC-CRED-002"
+      ],
+      "expected_score": 35
+    },
+    {
+      "name": "Preset: disguised @ link",
+      "url": "https://accounts.google.com@secure-check.top/",
+      "expected_rule_ids": [
+        "SEC-CRED-002",
+        "SEC-TLD-009"
+      ],
+      "expected_score": 70
+    },
+    {
+      "name": "Preset: look-alike domain",
+      "url": "https://paypa1.com/login",
+      "expected_rule_ids": [
+        "SEC-TYPO-015"
+      ],
+      "expected_score": 70
+    },
+    {
+      "name": "Decimal IPv4 host",
+      "url": "http://3232235876/",
+      "expected_rule_ids": [
+        "SEC-SCHEME-001",
+        "SEC-IP-003",
+        "SEC-IPOBF-014"
+      ],
+      "expected_score": 85
+    },
+    {
+      "name": "Hex IPv4 host",
+      "url": "http://0xC0A80164/",
+      "expected_rule_ids": [
+        "SEC-SCHEME-001",
+        "SEC-IP-003",
+        "SEC-IPOBF-014"
+      ],
+      "expected_score": 85
+    },
+    {
+      "name": "Octal IPv4 host",
+      "url": "http://0300.0250.1.100/",
+      "expected_rule_ids": [
+        "SEC-SCHEME-001",
+        "SEC-IP-003",
+        "SEC-IPOBF-014"
+      ],
+      "expected_score": 85
+    },
+    {
+      "name": "Shorthand loopback IPv4",
+      "url": "http://127.1/",
+      "expected_rule_ids": [
+        "SEC-SCHEME-001",
+        "SEC-IP-003",
+        "SEC-IPOBF-014"
+      ],
+      "expected_score": 85
+    },
+    {
+      "name": "Mixed hex shorthand IPv4",
+      "url": "https://0x7f.1/admin",
+      "expected_rule_ids": [
+        "SEC-IP-003",
+        "SEC-IPOBF-014"
+      ],
+      "expected_score": 70
+    },
+    {
+      "name": "IPv6 loopback with port",
+      "url": "https://[::1]:8443/",
+      "expected_rule_ids": [
+        "SEC-IP-003",
+        "SEC-PORT-004"
+      ],
+      "expected_score": 45
+    },
+    {
+      "name": "Backslash host confusion",
+      "url": "https://evil.com\\@google.com/",
+      "expected_rule_ids": [
+        "SEC-BSLASH-013"
+      ],
+      "expected_score": 70
+    },
+    {
+      "name": "Backslash only inside query (ignored)",
+      "url": "https://example.com/search?q=a\\b",
+      "expected_rule_ids": [],
+      "expected_score": 0
+    },
+    {
+      "name": "Cyrillic look-alike (IDN)",
+      "url": "https://pаypal.com/login",
+      "expected_rule_ids": [
+        "SEC-TYPO-015",
+        "SEC-IDN-016"
+      ],
+      "expected_score": 70
+    },
+    {
+      "name": "Percent-encoded host",
+      "url": "https://%65vil-login-secure-update.top/",
+      "expected_rule_ids": [
+        "SEC-HYPHEN-008",
+        "SEC-TLD-009"
+      ],
+      "expected_score": 25
+    },
+    {
+      "name": "Uppercase host",
+      "url": "https://WWW.EXAMPLE.COM/Path",
+      "expected_rule_ids": [],
+      "expected_score": 0
+    },
+    {
+      "name": "Redirect parameter",
+      "url": "https://example.com/out?url=https://evil.example/",
+      "expected_rule_ids": [
+        "SEC-REDIR-011"
+      ],
+      "expected_score": 15
+    },
+    {
+      "name": "Redirect text in fragment only (ignored)",
+      "url": "https://example.com/page#next=https://evil.example/",
+      "expected_rule_ids": [],
+      "expected_score": 0
+    },
+    {
+      "name": "Deep subdomains",
+      "url": "https://login.secure.update.account.example.com/",
+      "expected_rule_ids": [
+        "SEC-SUBDOM-006"
+      ],
+      "expected_score": 15
+    },
+    {
+      "name": "Long URL",
+      "url": "https://example.com/api/v1/resource?param=data&param=data&param=data&param=data&param=data&param=data&param=data&param=data&param=data&param=data&param=data&param=data&param=data&param=data&param=data&param=data&param=data&param=data&param=data&param=data&param=data&param=data&param=data&param=data&param=data&param=data&param=data&param=data&param=data&param=data&",
+      "expected_rule_ids": [
+        "SEC-URLLEN-012"
+      ],
+      "expected_score": 10
+    },
+    {
+      "name": "Multiple red flags",
+      "url": "http://10.0.0.5:8080/portal/login/verify?user=admin&token=abcdef1234567890",
+      "expected_rule_ids": [
+        "SEC-SCHEME-001",
+        "SEC-IP-003",
+        "SEC-PORT-004"
+      ],
+      "expected_score": 75
+    },
+    {
+      "name": "Official brand on country domain",
+      "url": "https://www.amazon.co.uk/",
+      "expected_rule_ids": [],
+      "expected_score": 0
+    },
+    {
+      "name": "Official brand on .co.in subdomain",
+      "url": "https://mail.google.co.in/",
+      "expected_rule_ids": [],
+      "expected_score": 0
+    },
+    {
+      "name": "Brand hidden inside a word (pineapple)",
+      "url": "https://pineapple.com/",
+      "expected_rule_ids": [],
+      "expected_score": 0
+    },
+    {
+      "name": "Brand hidden inside a word (purchase)",
+      "url": "https://www.purchase-store.com/",
+      "expected_rule_ids": [],
+      "expected_score": 0
+    },
+    {
+      "name": "Two subdomains on .co.uk",
+      "url": "https://a.b.example.co.uk/",
+      "expected_rule_ids": [],
+      "expected_score": 0
+    },
+    {
+      "name": "Brand + hyphen word",
+      "url": "https://paypal-login.com/",
+      "expected_rule_ids": [
+        "SEC-SPOOF-010"
+      ],
+      "expected_score": 70
+    },
+    {
+      "name": "Brand glued to keyword",
+      "url": "https://paypalsecure.com/",
+      "expected_rule_ids": [
+        "SEC-SPOOF-010"
+      ],
+      "expected_score": 70
+    },
+    {
+      "name": "Brand + id + verify",
+      "url": "https://apple-id-verify.com/",
+      "expected_rule_ids": [
+        "SEC-SPOOF-010"
+      ],
+      "expected_score": 70
+    },
+    {
+      "name": "Brand on abused TLD",
+      "url": "https://paypal.xyz/",
+      "expected_rule_ids": [
+        "SEC-TLD-009",
+        "SEC-SPOOF-010"
+      ],
+      "expected_score": 40
+    },
+    {
+      "name": "Brand-owned allowlisted domain",
+      "url": "https://login.microsoftonline.com/",
+      "expected_rule_ids": [],
+      "expected_score": 0
+    },
+    {
+      "name": "Digit look-alike (paypa1)",
+      "url": "https://paypa1.com/login",
+      "expected_rule_ids": [
+        "SEC-TYPO-015"
+      ],
+      "expected_score": 70
+    },
+    {
+      "name": "rn look-alike (rnicrosoft)",
+      "url": "https://rnicrosoft.com/",
+      "expected_rule_ids": [
+        "SEC-TYPO-015"
+      ],
+      "expected_score": 70
+    },
+    {
+      "name": "Look-alike word in hyphenated name",
+      "url": "https://g00gle-login.com/",
+      "expected_rule_ids": [
+        "SEC-TYPO-015"
+      ],
+      "expected_score": 70
+    },
+    {
+      "name": "Legit internationalized domain",
+      "url": "https://bücher.de/",
+      "expected_rule_ids": [
+        "SEC-IDN-016"
+      ],
+      "expected_score": 15
+    },
+    {
+      "name": "Already-punycoded look-alike",
+      "url": "https://xn--pypal-4ve.com/",
+      "expected_rule_ids": [
+        "SEC-TYPO-015",
+        "SEC-IDN-016"
+      ],
+      "expected_score": 70
+    },
+    {
+      "name": "One-letter typo (goggle)",
+      "url": "https://goggle.com/",
+      "expected_rule_ids": [
+        "SEC-TYPO-015"
+      ],
+      "expected_score": 30
+    },
+    {
+      "name": "Typo exception word (finance)",
+      "url": "https://finance.com/",
+      "expected_rule_ids": [],
+      "expected_score": 0
+    },
+    {
+      "name": "Disguised destination via @",
+      "url": "https://google.com@evil.com/",
+      "expected_rule_ids": [
+        "SEC-CRED-002"
+      ],
+      "expected_score": 70
+    },
+    {
+      "name": "Brand name before @",
+      "url": "https://paypal@evil.com/",
+      "expected_rule_ids": [
+        "SEC-CRED-002"
+      ],
+      "expected_score": 70
+    },
+    {
+      "name": "Disguised hex IP over HTTPS",
+      "url": "https://0xC0A80164/",
+      "expected_rule_ids": [
+        "SEC-IP-003",
+        "SEC-IPOBF-014"
+      ],
+      "expected_score": 70
+    },
+    {
+      "name": "Brand domain embedded in front of another",
+      "url": "https://paypal.com.evil.com/",
+      "expected_rule_ids": [
+        "SEC-SPOOF-010"
+      ],
+      "expected_score": 70
+    },
+    {
+      "name": "Brand without lure stays HIGH",
+      "url": "https://google.github.io/",
+      "expected_rule_ids": [
+        "SEC-SPOOF-010"
+      ],
+      "expected_score": 30
+    },
+    {
+      "name": "Brand with lure word only in path",
+      "url": "https://paypal.com.evil.com/signin",
+      "expected_rule_ids": [
+        "SEC-SPOOF-010"
+      ],
+      "expected_score": 70
+    },
+    {
+      "name": "Official brand with login path",
+      "url": "https://accounts.google.com/signin",
+      "expected_rule_ids": [],
+      "expected_score": 0
+    }
+  ]
+}

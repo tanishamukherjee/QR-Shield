@@ -7,7 +7,8 @@ import {
   CheckCircle2,
   Clock,
   Compass,
-  FileCheck
+  FileCheck,
+  History
 } from 'lucide-react';
 
 export default function AnalysisResults({ result }) {
@@ -25,7 +26,8 @@ export default function AnalysisResults({ result }) {
     analyzed_at = '',
     engine_version = '1.0.0',
     is_mock = false,
-    is_fallback_simulation = false
+    is_fallback_simulation = false,
+    from_history = false
   } = result;
 
   const levelClass =
@@ -46,6 +48,28 @@ export default function AnalysisResults({ result }) {
 
   return (
     <div className={`results-card ${levelClass}`}>
+      {/* Saved-result banner when opened from History */}
+      {from_history && (
+        <div style={{
+          marginBottom: '1.25rem',
+          padding: '0.65rem 1rem',
+          borderRadius: 'var(--radius-sm)',
+          background: 'rgba(56, 189, 248, 0.1)',
+          border: '1px solid rgba(56, 189, 248, 0.3)',
+          color: '#38bdf8',
+          fontSize: '0.8rem',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '0.5rem'
+        }}>
+          <History size={16} style={{ flexShrink: 0 }} />
+          <span>
+            Saved result from {analyzed_at ? new Date(analyzed_at).toLocaleString() : 'an earlier scan'}.
+            Private parts of the link were removed when it was saved, so it can't be rescanned.
+          </span>
+        </div>
+      )}
+
       {/* Simulation Banner if offline */}
       {is_mock && (
         <div style={{

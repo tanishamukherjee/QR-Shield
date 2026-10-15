@@ -7,7 +7,7 @@ import ScanHistory from './components/ScanHistory';
 import AboutMethodology from './components/AboutMethodology';
 import Footer from './components/Footer';
 
-import { analyzeTargetUrl } from './services/api';
+import { analyzeTargetUrl, checkBackendHealth } from './services/api';
 import { getScanHistory, saveScanToHistory, clearScanHistory } from './utils/historyStorage';
 
 import { QrCode, History, Layers, ShieldCheck, Radar } from 'lucide-react';
@@ -21,15 +21,25 @@ export default function App() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [history, setHistory] = useState([]);
-  const [isMockMode, setIsMockMode] = useState(
-    import.meta.env.VITE_ENABLE_OFFLINE_MOCK === 'true' || !import.meta.env.VITE_API_BASE_URL
-  );
+  // 'checking' | 'live' | 'offline' (backend unreachable) | 'forced-offline' (simulation configured)
+  const [backendStatus, setBackendStatus] = useState('checking');
 
   const resultsRef = useRef(null);
 
   // Load history from localStorage on initial render
   useEffect(() => {
     setHistory(getScanHistory());
+  }, []);
+
+  // Check the backend health route once on load. A scan that finishes first wins.
+  useEffect(() => {
+    let cancelled = false;
+    checkBackendHealth().then((status) => {
+      if (!cancelled) {
+        setBackendStatus(prev => (prev === 'checking' ? status : prev));
+      }
+    });
+    return () => { cancelled = true; };
   }, []);
 
   // Auto-scroll to loading box when analysis starts
@@ -84,8 +94,11 @@ export default function App() {
       const result = await analyzeTargetUrl(url);
       setScanResult(result);
 
+      // Every result tells us whether the live backend answered
       if (result.is_mock) {
-        setIsMockMode(true);
+        setBackendStatus(prev => (prev === 'forced-offline' ? prev : 'offline'));
+      } else {
+        setBackendStatus('live');
       }
 
       // Persist to local storage
@@ -94,6 +107,11 @@ export default function App() {
     } catch (err) {
       setError(err.message || 'Failed to analyze URL.');
       setScanResult(null);
+      if (err.backendReachable === true) {
+        setBackendStatus('live');
+      } else if (err.backendReachable === false) {
+        setBackendStatus('offline');
+      }
     } finally {
       setIsLoading(false);
     }
@@ -106,14 +124,20 @@ export default function App() {
     }
   };
 
-  const handleSelectHistoryItem = (url) => {
+  // Shows the saved result. The stored URL is sanitized, so rescanning it would
+  // analyze a different link and give a different score.
+  const handleSelectHistoryItem = (item) => {
+    if (!item.result) return;
     setActiveTab('scanner');
-    handleUrlExtracted(url, 'history');
+    setError('');
+    setExtractedUrl(item.displayUrl);
+    setExtractedHostname(item.hostname);
+    setScanResult({ ...item.result, from_history: true });
   };
 
   return (
     <div className="app-container">
-      <Navbar isMockMode={isMockMode} />
+      <Navbar backendStatus={backendStatus} />
 
       <main className="main-content">
         {/* Hero Branding */}

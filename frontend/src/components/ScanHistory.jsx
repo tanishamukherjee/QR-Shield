@@ -1,5 +1,5 @@
 import React from 'react';
-import { History, Trash2, ArrowUpRight, ShieldCheck, AlertTriangle, AlertOctagon } from 'lucide-react';
+import { History, Trash2, Eye, ShieldCheck, AlertTriangle, AlertOctagon } from 'lucide-react';
 
 export default function ScanHistory({ history, onClearHistory, onSelectHistoryItem }) {
   if (!history || history.length === 0) {
@@ -69,11 +69,12 @@ export default function ScanHistory({ history, onClearHistory, onSelectHistoryIt
                 <button
                   type="button"
                   className="chip-btn"
-                  onClick={() => onSelectHistoryItem(item.displayUrl)}
-                  title="Re-analyze this link"
+                  onClick={() => onSelectHistoryItem(item)}
+                  disabled={!item.result}
+                  title={item.result ? 'View the saved analysis for this link' : 'Saved by an older version; details are not available'}
                 >
-                  <ArrowUpRight size={13} />
-                  Analyze
+                  <Eye size={13} />
+                  View Result
                 </button>
               </div>
             </div>

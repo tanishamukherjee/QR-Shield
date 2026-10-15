@@ -13,7 +13,9 @@ const samples = [
   { name: '03_url_shortener.png', url: 'https://bit.ly/3SecureLogin' },
   { name: '04_phishing_spoofed_brand.png', url: 'https://paypal.account-verify.xyz/login' },
   { name: '05_raw_ip_custom_port.png', url: 'http://192.168.1.100:8080/admin' },
-  { name: '06_embedded_credentials.png', url: 'https://root:admin123@web-router.net/auth' }
+  { name: '06_embedded_credentials.png', url: 'https://root:admin123@web-router.net/auth' },
+  { name: '07_disguised_at_link.png', url: 'https://accounts.google.com@secure-check.top/' },
+  { name: '08_lookalike_domain.png', url: 'https://paypa1.com/login' }
 ];
 
 async function generate() {

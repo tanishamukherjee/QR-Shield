@@ -3,12 +3,14 @@ import { Upload, QrCode, Globe, AlertCircle, FileImage, X, Zap } from 'lucide-re
 import { decodeQrFromImage, validateScannedUrl } from '../utils/qrDecoder';
 
 const PRESETS = [
-  { label: 'Safe HTTPS', url: 'https://www.cambridge.org/research', riskHint: 'Clean' },
-  { label: 'Plain HTTP', url: 'http://library.univ-portal.edu/books', riskHint: 'Low/Med' },
-  { label: 'URL Shortener', url: 'https://bit.ly/3SecureLogin', riskHint: 'Medium' },
-  { label: 'Raw IP Host', url: 'http://192.168.1.100:8080/admin', riskHint: 'High' },
-  { label: 'Spoofed Brand', url: 'https://paypal.account-verify.xyz/login', riskHint: 'High' },
-  { label: 'Embedded Auth', url: 'https://root:admin123@web-router.net/auth', riskHint: 'High' }
+  { label: 'Safe HTTPS', url: 'https://www.cambridge.org/research' },
+  { label: 'Plain HTTP', url: 'http://library.univ-portal.edu/books' },
+  { label: 'URL Shortener', url: 'https://bit.ly/3SecureLogin' },
+  { label: 'Raw IP Host', url: 'http://192.168.1.100:8080/admin' },
+  { label: 'Spoofed Brand', url: 'https://paypal.account-verify.xyz/login' },
+  { label: 'Embedded Auth', url: 'https://root:admin123@web-router.net/auth' },
+  { label: 'Disguised @ Link', url: 'https://accounts.google.com@secure-check.top/' },
+  { label: 'Look-alike Domain', url: 'https://paypa1.com/login' }
 ];
 
 export default function Scanner({ onUrlExtracted, isLoading, error, onErrorClear }) {

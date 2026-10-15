@@ -1,7 +1,8 @@
-import jsQR from 'jsQR';
+import jsQR from 'jsqr';
 
 const ALLOWED_MIME_TYPES = ['image/png', 'image/jpeg', 'image/jpg', 'image/webp'];
 const MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024; // 5 MB
+const MAX_URL_LENGTH = 2048; // matches the backend limit
 
 /**
  * Validates file format and size constraints.
@@ -119,6 +120,15 @@ export function validateScannedUrl(rawText) {
 
   const trimmed = rawText.trim();
 
+  // Same limits as the backend (url_analyzer.validate_and_parse_url), so the
+  // offline simulation never accepts a URL the live backend would reject
+  if (trimmed.length > MAX_URL_LENGTH) {
+    throw new Error(`URL exceeds the maximum permitted length of ${MAX_URL_LENGTH} characters.`);
+  }
+  if (/[\u0000-\u001f\u007f]/.test(trimmed)) {
+    throw new Error('URL contains forbidden control characters.');
+  }
+
   // Basic scheme test before full URL parse
   const schemeMatch = trimmed.match(/^([a-zA-Z0-9+.-]+):/);
   if (!schemeMatch) {
@@ -130,7 +140,7 @@ export function validateScannedUrl(rawText) {
   const scheme = schemeMatch[1].toLowerCase();
   if (scheme !== 'http' && scheme !== 'https') {
     throw new Error(
-      `Unsupported scheme "${scheme}:". QRShield protects against web threats and rejects non-web protocols (such as ${scheme}:, tel:, mailto:, sms:).`
+      `Unsupported scheme "${scheme}:". QRShield analyzes web links (http:// and https://) only and rejects other protocols such as tel:, mailto: and sms:.`
     );
   }
 
