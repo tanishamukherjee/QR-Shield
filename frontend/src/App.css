@@ -105,6 +105,12 @@
   border-color: rgba(245, 158, 11, 0.3);
 }
 
+.badge-status-checking {
+  background: rgba(148, 163, 184, 0.1);
+  color: var(--text-secondary);
+  border-color: rgba(148, 163, 184, 0.3);
+}
+
 .status-dot {
   width: 7px;
   height: 7px;
@@ -191,6 +197,8 @@
   color: var(--text-secondary);
   font-size: 0.875rem;
   font-weight: 600;
+  white-space: nowrap;
+  min-width: 0;
   transition: all 0.2s ease;
 }
 
@@ -210,7 +218,7 @@
    -------------------------------------------------------------------------- */
 .scanner-grid {
   display: grid;
-  grid-template-columns: 1fr;
+  grid-template-columns: minmax(0, 1fr); /* let long URLs wrap instead of widening the page */
   gap: 1.5rem;
 }
 
@@ -460,7 +468,12 @@
   transition: all 0.15s ease;
 }
 
-.chip-btn:hover {
+.chip-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.chip-btn:hover:not(:disabled) {
   background: rgba(0, 242, 254, 0.08);
   border-color: var(--border-glow);
   color: var(--text-primary);
@@ -687,6 +700,7 @@
   border: 4px solid;
   font-family: var(--font-mono);
   box-shadow: 0 0 25px rgba(0, 0, 0, 0.4);
+  flex-shrink: 0; /* stay a circle when the heading next to it wraps */
 }
 
 .score-circle.score-low {
@@ -820,7 +834,13 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-wrap: wrap; /* on narrow screens the rule ID moves below the title */
+  gap: 0.35rem 0.75rem;
   margin-bottom: 0.6rem;
+}
+
+.finding-header > span:last-child {
+  white-space: nowrap;
 }
 
 .finding-title-wrap {
@@ -971,7 +991,7 @@
    -------------------------------------------------------------------------- */
 .methodology-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(320px, 100%), 1fr));
   gap: 1.5rem;
   margin-top: 1.25rem;
 }
@@ -1073,5 +1093,30 @@
     flex-direction: column;
     align-items: flex-start;
     gap: 0.75rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .main-content {
+    padding: 1.5rem 1rem 3rem;
+  }
+  /* Three tabs must fit side by side on a phone: size to content, drop the icons */
+  .tab-nav {
+    gap: 0.25rem;
+  }
+  .tab-btn {
+    flex: 1 1 auto;
+    padding: 0.55rem 0.5rem;
+    font-size: 0.8rem;
+  }
+  .tab-btn svg {
+    display: none;
+  }
+  .card,
+  .results-card {
+    padding: 1.25rem;
+  }
+  .method-card {
+    padding: 1.1rem;
   }
 }

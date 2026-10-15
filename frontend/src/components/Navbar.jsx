@@ -1,7 +1,32 @@
 import React from 'react';
 import { Shield, Cloud, Terminal } from 'lucide-react';
 
-export default function Navbar({ isMockMode }) {
+const STATUS_BADGES = {
+  checking: {
+    className: 'badge-status-checking',
+    label: 'Checking Backend…',
+    title: 'Contacting the Python threat engine'
+  },
+  live: {
+    className: 'badge-status-live',
+    label: 'Backend Active',
+    title: 'Connected to Python Threat Engine'
+  },
+  offline: {
+    className: 'badge-status-mock',
+    label: 'Backend Unreachable · Simulation',
+    title: 'The backend did not respond; scans use the local offline simulation'
+  },
+  'forced-offline': {
+    className: 'badge-status-mock',
+    label: 'Offline Simulation',
+    title: 'Offline simulation mode is configured (VITE_ENABLE_OFFLINE_MOCK or no VITE_API_BASE_URL)'
+  }
+};
+
+export default function Navbar({ backendStatus }) {
+  const status = STATUS_BADGES[backendStatus] || STATUS_BADGES.checking;
+
   return (
     <header className="navbar">
       <div className="brand">
@@ -20,17 +45,10 @@ export default function Navbar({ isMockMode }) {
           AWS Serverless
         </span>
 
-        {isMockMode ? (
-          <span className="badge badge-status-mock" title="Operating in offline simulation fallback mode">
-            <span className="status-dot"></span>
-            Offline Simulation
-          </span>
-        ) : (
-          <span className="badge badge-status-live" title="Connected to Python Threat Engine">
-            <span className="status-dot"></span>
-            Backend Active
-          </span>
-        )}
+        <span className={`badge ${status.className}`} title={status.title}>
+          <span className="status-dot"></span>
+          {status.label}
+        </span>
       </div>
     </header>
   );

@@ -5,7 +5,6 @@ Uses Python standard library (http.server) - no Flask/FastAPI required!
 """
 
 from http.server import HTTPServer, BaseHTTPRequestHandler
-import json
 import os
 import sys
 
@@ -53,17 +52,13 @@ class QRShieldLocalHandler(BaseHTTPRequestHandler):
         self._send_lambda_response(resp)
 
     def do_GET(self):
-        # Health check endpoint
-        self.send_response(200)
-        self.send_header("Content-Type", "application/json")
-        self.send_header("Access-Control-Allow-Origin", "*")
-        self.end_headers()
-        payload = {
-            "service": "QRShield Local Server",
-            "status": "healthy",
-            "message": "Send POST requests with {\"url\": \"...\"} to analyze."
+        # Health check endpoint - same route the deployed Lambda serves
+        event = {
+            "requestContext": {"http": {"method": "GET"}},
+            "headers": dict(self.headers)
         }
-        self.wfile.write(json.dumps(payload).encode("utf-8"))
+        resp = lambda_handler(event, None)
+        self._send_lambda_response(resp)
 
     def log_message(self, format, *args):
         # Standard formatting for request logs

@@ -39,18 +39,22 @@ export function getScanHistory() {
 export function saveScanToHistory(result) {
   try {
     const history = getScanHistory();
+    const displayUrl = sanitizeUrlForStorage(result.normalized_url || '');
     const entry = {
       id: `${Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
       timestamp: result.analyzed_at || new Date().toISOString(),
-      displayUrl: sanitizeUrlForStorage(result.normalized_url || ''),
+      displayUrl,
       hostname: result.hostname || 'unknown',
       risk_level: result.risk_level || 'Low',
       risk_score: result.risk_score || 0,
       findings_count: (result.findings || []).length,
-      is_mock: !!result.is_mock
+      is_mock: !!result.is_mock,
+      // Full result snapshot so History can show it again without rescanning.
+      // Only the URL is sanitized; findings and summary mention just the hostname.
+      result: { ...result, normalized_url: displayUrl }
     };
 
-    // Filter out duplicates of exact same hostname scanned within the last 10 seconds
+    // Keep only the newest entry for each sanitized URL
     const updated = [entry, ...history.filter(h => h.displayUrl !== entry.displayUrl)].slice(0, MAX_HISTORY_ITEMS);
     localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
     return updated;

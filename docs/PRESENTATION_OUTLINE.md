@@ -47,19 +47,23 @@ This script is structured for a 7–8 minute recorded demonstration or live viva
 - **Action 2 (URL Shortener / Plain HTTP):**
   - Click on **"URL Shortener"** (`https://bit.ly/3SecureLogin`).
   - Explain the score: **30 / 100**, categorized as **Medium Risk**.
-  - Point out rule `SEC-SHORT-005`: URL shorteners hide the real destination, which is commonly used to mask redirects in QR codes.
+  - Point out rule `SEC-SHORT-005`: URL shorteners hide the real destination, which is commonly used to mask redirects in QR codes. A QR code can hold a long URL, so a shortener inside one has no good reason to be there.
 
 ### 4. Live Demo: High-Risk Phishing & Brand Spoofing (3:45 – 5:00)
 - **Action 1 (Brand Spoofing):**
   - Click on **"Spoofed Brand"** (`https://paypal.account-verify.xyz/login`).
-  - Show the alert: **Risk Score 75 / 100**, categorized as **High Risk** with vivid crimson styling.
+  - Show the alert: **Risk Score 70 / 100**, categorized as **High Risk** with vivid crimson styling.
   - Review the findings:
-    - `SEC-SPOOF-010`: Detected the brand keyword "PayPal" in a subdomain where the root domain is registered to an unrelated entity (`account-verify.xyz`).
+    - `SEC-SPOOF-010` (**CRITICAL**): Detected the brand "PayPal" on a domain registered to an unrelated entity (`account-verify.xyz`), combined with login wording (`verify`, `/login`). Brand + login lure is the classic phishing pattern.
     - `SEC-TLD-009`: High-risk low-cost generic TLD (`.xyz`).
+  - Explain the scoring: the rule weights add up to 40, but any **CRITICAL** finding (a deception trick with no legitimate use) lifts the score to at least 70, so the result is always High.
   - Emphasize the actionable recommendation: *"Do not provide credentials. Navigate directly to the official website."*
 - **Action 2 (Raw IP Hostname):**
   - Click **"Raw IP Host"** (`http://192.168.1.100:8080/admin`).
-  - Point out `SEC-IP-003` and `SEC-PORT-004`: Legitimate public web services almost never use bare IP addresses and custom ports in QR codes.
+  - Show the score: **75 / 100 (High)**. Point out `SEC-SCHEME-001`, `SEC-IP-003` and `SEC-PORT-004` plus the +10 compound bonus for three red flags: legitimate public web services almost never use bare IP addresses and custom ports in QR codes.
+- **Action 3 (Optional, Look-alike Domain):**
+  - Click **"Look-alike Domain"** (`https://paypa1.com/login`).
+  - Show the score: **70 / 100 (High)**. `SEC-TYPO-015` (**CRITICAL**) spots the digit `1` imitating the letter `l` in "paypal".
 
 ### 5. AWS Serverless & CloudWatch Logging (5:00 – 6:00)
 - **Visual:** Show the AWS Lambda Console or CloudWatch log stream (or local server logs).

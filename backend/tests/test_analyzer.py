@@ -153,6 +153,139 @@ class TestQRShieldAnalyzer(unittest.TestCase):
         with self.assertRaises(URLValidationError):
             analyze_url(url)
 
+    def test_15_obfuscated_ipv4_hosts_decoded_like_browser(self):
+        """Decimal, hex, octal and shorthand IPv4 hosts are decoded, flagged as IP hosts and as disguised."""
+        for url, expected_ip in [
+            ("http://3232235876/", "192.168.1.100"),
+            ("http://0xC0A80164/", "192.168.1.100"),
+            ("http://0300.0250.1.100/", "192.168.1.100"),
+            ("http://127.1/", "127.0.0.1"),
+        ]:
+            with self.subTest(url=url):
+                result = analyze_url(url)
+                self.assertEqual(result["hostname"], expected_ip)
+                rule_ids = [f["rule_id"] for f in result["findings"]]
+                self.assertIn("SEC-IP-003", rule_ids)
+                self.assertIn("SEC-IPOBF-014", rule_ids)
+                self.assertEqual(result["risk_level"], "High")
+
+        # A normally written IP is not 'disguised'
+        plain = [f["rule_id"] for f in analyze_url("http://192.168.1.100/")["findings"]]
+        self.assertNotIn("SEC-IPOBF-014", plain)
+
+    def test_16_backslash_host_confusion(self):
+        """'evil.com\\@google.com' goes to evil.com in a browser; the backend must agree and flag it."""
+        result = analyze_url("https://evil.com\\@google.com/")
+        self.assertEqual(result["hostname"], "evil.com")
+        rule_ids = [f["rule_id"] for f in result["findings"]]
+        self.assertIn("SEC-BSLASH-013", rule_ids)
+
+    def test_17_idn_hostname_converted_to_punycode(self):
+        """Non-ASCII hostnames are analyzed in the punycode form the browser connects to."""
+        result = analyze_url("https://pаypal.com/login")  # Cyrillic 'a'
+        self.assertEqual(result["hostname"], "xn--pypal-4ve.com")
+
+    def test_18_hosts_browsers_reject_are_rejected(self):
+        """Invalid ports and invalid IP-like hosts return a validation error instead of a 500."""
+        for url in ["http://example.com:99999/", "http://1.2.3.4.5/", "http://256.1.1.1/", "https://exa mple.com/"]:
+            with self.subTest(url=url):
+                with self.assertRaises(URLValidationError):
+                    analyze_url(url)
+
+    def test_19_critical_findings_force_high_risk(self):
+        """A single CRITICAL finding (disguised IP / '@' trick / look-alike / backslash) is always High."""
+        for url, rule_id in [
+            ("https://0xC0A80164/", "SEC-IPOBF-014"),
+            ("https://google.com@evil.com/", "SEC-CRED-002"),
+            ("https://paypa1.com/login", "SEC-TYPO-015"),
+            ("https://evil.com\\@google.com/", "SEC-BSLASH-013"),
+        ]:
+            with self.subTest(url=url):
+                result = analyze_url(url)
+                finding = next(f for f in result["findings"] if f["rule_id"] == rule_id)
+                self.assertEqual(finding["severity"], "CRITICAL")
+                self.assertEqual(result["risk_level"], "High")
+                self.assertGreaterEqual(result["risk_score"], 70)
+
+    def test_20_plain_credentials_stay_high_not_critical(self):
+        """'user:password@' does not pretend to be another site, so it stays HIGH (not CRITICAL)."""
+        result = analyze_url("https://root:admin123@web-router.net/auth")
+        finding = next(f for f in result["findings"] if f["rule_id"] == "SEC-CRED-002")
+        self.assertEqual(finding["severity"], "HIGH")
+        self.assertEqual(result["risk_score"], 35)
+
+    def test_21_official_brand_domains_not_flagged(self):
+        """Official brand sites, including country domains and known brand-owned domains, are clean."""
+        for url in ["https://www.amazon.co.uk/", "https://mail.google.co.in/", "https://accounts.google.com/",
+                    "https://login.microsoftonline.com/", "https://chaseonline.chase.com/"]:
+            with self.subTest(url=url):
+                self.assertEqual(analyze_url(url)["findings"], [])
+
+    def test_22_brand_words_inside_ordinary_words_not_flagged(self):
+        """'pineapple' and 'purchase' contain brand letters but are not brand words."""
+        for url in ["https://pineapple.com/", "https://www.purchase-store.com/", "https://finance.com/"]:
+            with self.subTest(url=url):
+                self.assertEqual(analyze_url(url)["findings"], [])
+
+    def test_23_brand_impersonation_in_registered_name(self):
+        """Brand as a word of the registered domain (not the official one) is flagged."""
+        for url in ["https://paypal-login.com/", "https://paypalsecure.com/",
+                    "https://apple-id-verify.com/", "https://paypal.xyz/"]:
+            with self.subTest(url=url):
+                rule_ids = [f["rule_id"] for f in analyze_url(url)["findings"]]
+                self.assertIn("SEC-SPOOF-010", rule_ids)
+
+    def test_24_idn_rules(self):
+        """Real IDN domains get a MEDIUM note only; mixed-alphabet look-alikes are flagged hard."""
+        legit = analyze_url("https://bücher.de/")
+        self.assertEqual([(f["rule_id"], f["severity"]) for f in legit["findings"]], [("SEC-IDN-016", "MEDIUM")])
+
+        spoof = analyze_url("https://pаypal.com/")  # Cyrillic 'a'
+        rule_ids = [f["rule_id"] for f in spoof["findings"]]
+        self.assertIn("SEC-TYPO-015", rule_ids)
+        self.assertIn("SEC-IDN-016", rule_ids)
+        self.assertNotIn("SEC-HYPHEN-008", rule_ids)
+        self.assertEqual(spoof["risk_level"], "High")
+
+    def test_26_brand_with_phishing_lure_is_critical(self):
+        """Brand impersonation plus a login lure (host or path) or an embedded brand domain is CRITICAL / High."""
+        for url in ["https://paypal.account-verify.xyz/login", "https://paypal-login.com/",
+                    "https://paypalsecure.com/", "https://paypal.com.evil.com/"]:
+            with self.subTest(url=url):
+                result = analyze_url(url)
+                spoof = next(f for f in result["findings"] if f["rule_id"] == "SEC-SPOOF-010")
+                self.assertEqual(spoof["severity"], "CRITICAL")
+                self.assertEqual(result["risk_level"], "High")
+
+    def test_27_brand_without_lure_stays_medium(self):
+        """A brand name alone on an unrelated domain (e.g. google.github.io) stays HIGH severity / Medium risk."""
+        result = analyze_url("https://google.github.io/")
+        spoof = next(f for f in result["findings"] if f["rule_id"] == "SEC-SPOOF-010")
+        self.assertEqual(spoof["severity"], "HIGH")
+        self.assertEqual(result["risk_level"], "Medium")
+
+    def test_28_demo_presets_match_documented_scores(self):
+        """The UI presets must score exactly what the docs and presentation script say."""
+        for url, score, level in [
+            ("https://www.cambridge.org/research", 0, "Low"),
+            ("http://library.univ-portal.edu/books", 20, "Low"),
+            ("https://bit.ly/3SecureLogin", 30, "Medium"),
+            ("http://192.168.1.100:8080/admin", 75, "High"),
+            ("https://paypal.account-verify.xyz/login", 70, "High"),
+            ("https://root:admin123@web-router.net/auth", 35, "Medium"),
+            ("https://accounts.google.com@secure-check.top/", 70, "High"),
+            ("https://paypa1.com/login", 70, "High"),
+        ]:
+            with self.subTest(url=url):
+                result = analyze_url(url)
+                self.assertEqual((result["risk_score"], result["risk_level"]), (score, level))
+
+    def test_25_subdomain_depth_uses_registered_domain(self):
+        """Subdomain depth is counted in front of the registered domain ('co.uk' is one suffix)."""
+        self.assertEqual(analyze_url("https://a.b.example.co.uk/")["findings"], [])
+        rule_ids = [f["rule_id"] for f in analyze_url("https://login.secure.update.example.com/")["findings"]]
+        self.assertIn("SEC-SUBDOM-006", rule_ids)
+
 
 class TestQRShieldLambdaHandler(unittest.TestCase):
 
@@ -188,6 +321,18 @@ class TestQRShieldLambdaHandler(unittest.TestCase):
         self.assertEqual(response["statusCode"], 204)
         self.assertEqual(response["headers"]["Access-Control-Allow-Origin"], "https://qrshield.example.com")
         self.assertIn("POST, OPTIONS", response["headers"]["Access-Control-Allow-Methods"])
+
+    def test_lambda_get_health_check(self):
+        """GET returns a 200 health response so the frontend can show backend status."""
+        event = {
+            "requestContext": {"http": {"method": "GET"}},
+            "headers": {"origin": "http://localhost:5173"}
+        }
+        response = lambda_handler(event, None)
+        self.assertEqual(response["statusCode"], 200)
+        body = json.loads(response["body"])
+        self.assertEqual(body["status"], "healthy")
+        self.assertIn("GET", response["headers"]["Access-Control-Allow-Methods"])
 
     def test_lambda_missing_url(self):
         """Missing URL field in body returns 400 Bad Request."""

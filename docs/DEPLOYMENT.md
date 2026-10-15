@@ -24,13 +24,13 @@ QRShield was engineered specifically to adhere to the **AWS Free Tier** and avoi
 
 Before initiating any deployment in the AWS Console or CLI, verify each item in this checklist:
 
-- [ ] **1. Python Runtime:** Target `Python 3.12` (or `Python 3.11`). Verified that code uses only standard library (`urllib.parse`, `ipaddress`, `json`, `re`, `datetime`).
+- [ ] **1. Python Runtime:** Target `Python 3.12` (or `Python 3.11`). Verified that code uses only standard library (`urllib.parse`, `ipaddress`, `unicodedata`, `json`, `re`, `base64`, `datetime`).
 - [ ] **2. Handler Specification:** Explicitly configured as `lambda_function.lambda_handler`.
 - [ ] **3. Compute Allocation:** Memory set to `128 MB` (lowest cost tier, <15ms execution); Timeout set to `5 seconds` (prevents lingering compute charges).
 - [ ] **4. Function URL Authentication:** Set to `NONE` (enables public browser access without requiring AWS Signature Version 4 signing).
 - [ ] **5. CORS Configuration:**
   - Allowed Origins: `*` (or your frontend domain, e.g. `http://localhost:5173`)
-  - Allowed Methods: `POST`, `OPTIONS`
+  - Allowed Methods: `GET`, `POST`, `OPTIONS` (`GET` is the health check used by the status badge)
   - Allowed Headers: `Content-Type`, `Authorization`, `X-Requested-With`
   - Max Age: `86400` seconds
 - [ ] **6. Amazon CloudWatch Logs:** Default execution role has `logs:CreateLogGroup`, `logs:CreateLogStream`, `logs:PutLogEvents`. Verified that URL query parameters and credentials are automatically stripped prior to logging.
@@ -98,7 +98,7 @@ You can deploy using the **AWS Management Console** or the **AWS CLI**.
    - **Auth type:** `NONE` (allows direct HTTPS invocation from the browser without AWS IAM signing keys).
    - Check **Configure cross-origin resource sharing (CORS)**:
      - **Allow origin:** `*` (or your specific frontend domain, e.g. `http://localhost:5173`)
-     - **Allow methods:** `POST`, `OPTIONS`
+     - **Allow methods:** `GET`, `POST`, `OPTIONS`
      - **Allow headers:** `content-type`, `authorization`, `x-requested-with`
      - **Max age:** `86400`
 4. Click **Save**.
@@ -119,7 +119,7 @@ You can deploy using the **AWS Management Console** or the **AWS CLI**.
 3. Click **Test**.
 4. Verify the execution output:
    - Status code: `200`
-   - Response includes `risk_score: 75`, `risk_level: "High"`, and triggered rule findings.
+   - Response includes `risk_score: 70`, `risk_level: "High"`, and the findings `SEC-TLD-009` and `SEC-SPOOF-010` (CRITICAL).
 
 ---
 

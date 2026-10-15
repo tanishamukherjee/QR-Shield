@@ -4,6 +4,26 @@ const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || '').trim();
 const FORCE_OFFLINE_MOCK = import.meta.env.VITE_ENABLE_OFFLINE_MOCK === 'true';
 
 /**
+ * Checks whether the backend health route (GET /) answers.
+ * Returns 'forced-offline' (simulation configured), 'live' or 'offline'.
+ */
+export async function checkBackendHealth() {
+  if (FORCE_OFFLINE_MOCK || !API_BASE_URL) {
+    return 'forced-offline';
+  }
+
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 4000); // allows for a Lambda cold start
+    const response = await fetch(API_BASE_URL.replace(/\/+$/, '') + '/', { signal: controller.signal });
+    clearTimeout(timeoutId);
+    return response.ok ? 'live' : 'offline';
+  } catch {
+    return 'offline';
+  }
+}
+
+/**
  * Sends a URL to the backend Lambda Function URL for threat analysis.
  * Automatically falls back to client-side simulation when offline or unconfigured,
  * ensuring clear visual indicators so mock is never mistaken for live AWS.
@@ -37,7 +57,9 @@ export async function analyzeTargetUrl(url) {
 
     if (!response.ok) {
       const errorMsg = (data && data.message) || `Server returned HTTP ${response.status}`;
-      throw new Error(errorMsg);
+      const httpError = new Error(errorMsg);
+      httpError.backendReachable = true; // the backend answered, it just rejected the input
+      throw httpError;
     }
 
     return {
@@ -47,7 +69,9 @@ export async function analyzeTargetUrl(url) {
   } catch (error) {
     // If network error (backend server not started or CORS failure), fallback to client simulation with notification
     if (error.name === 'AbortError') {
-      throw new Error('Analysis timed out after 8 seconds. Please check backend connection.');
+      const timeoutError = new Error('Analysis timed out after 8 seconds. Please check backend connection.');
+      timeoutError.backendReachable = false;
+      throw timeoutError;
     }
 
     // If it's a fetch network error (e.g. Failed to fetch when local backend isn't running)

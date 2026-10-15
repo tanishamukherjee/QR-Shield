@@ -1,6 +1,6 @@
 # QRShield — Cloud-Based QR Code Threat Detection System
 
-[![Python Tests](https://img.shields.io/badge/Python%20Tests-20%2F20%20Passing-brightgreen)](docs/TESTING.md)
+[![Python Tests](https://img.shields.io/badge/Python%20Tests-36%2F36%20Passing-brightgreen)](docs/TESTING.md)
 [![Frontend](https://img.shields.io/badge/Frontend-React%20%2B%20Vite-blue)](frontend/)
 [![Architecture](https://img.shields.io/badge/Cloud-AWS%20Lambda%20Serverless-orange)](docs/ARCHITECTURE.md)
 [![Status](https://img.shields.io/badge/Project-College%20Submission-teal)](docs/PRESENTATION_OUTLINE.md)
@@ -13,10 +13,11 @@
 
 - **🔒 Client-Side Privacy (Zero-Knowledge Ingestion):** QR code image decoding runs 100% locally in the browser using HTML5 Canvas and `jsQR`. Images are **never** uploaded to servers or stored on disks.
 - **⚡ AWS Serverless Backend:** Runs on **AWS Lambda** via a direct **Function URL**. Zero EC2 servers, zero idle costs, and automatic scale-to-zero.
-- **🛡️ 12 Deterministic Threat Rules:** Inspects unencrypted HTTP, embedded credentials, raw IP hosts, custom ports, URL shorteners, brand spoofing, and excessive subdomain hierarchies.
-- **📊 Transparent Heuristic Scoring:** Generates a deterministic score (0–100) mapped to **Low**, **Medium**, and **High** risk with plain-language explanations and recommended precautions.
+- **🛡️ 16 Deterministic Threat Rules:** Inspects unencrypted HTTP, embedded credentials, raw and disguised IP hosts, custom ports, URL shorteners, brand spoofing, look-alike (typosquatted) brand names, international look-alike characters, and excessive subdomain hierarchies.
+- **🌐 Browser-Equivalent Parsing:** Reads each URL exactly as a browser would (backslash tricks, decimal/hex IPs, punycode), so the analysis matches the real destination.
+- **📊 Transparent Heuristic Scoring:** Generates a deterministic score (0–100) mapped to **Low**, **Medium**, and **High** risk with plain-language explanations and recommended precautions. Any **CRITICAL** deception trick is always High risk.
 - **🚫 Safe Navigation Guarantee:** Decoded links are rendered safely in monospace boxes with copy functionality. QRShield **never** automatically navigates to or opens scanned URLs.
-- **📜 Bounded Local History:** Stores recent scans (max 10) in browser `localStorage` with credentials and sensitive query tokens sanitized. Includes a 1-click clear history action.
+- **📜 Bounded Local History:** Stores recent scan results (max 10) in browser `localStorage` with credentials and sensitive query tokens sanitized. Saved results can be viewed again; includes a 1-click clear history action.
 - **🧪 Offline Simulation Mode:** Features a built-in client-side simulation engine so the application can be evaluated seamlessly even when offline.
 
 ---
@@ -31,7 +32,7 @@ User Device (Browser)
                     └─► HTTPS POST ──► AWS Lambda Function URL
                                          ├─► lambda_function.py (CORS & Validation)
                                          ├─► url_analyzer.py (Normalizer & Scorer)
-                                         ├─► rules.py (12 Heuristic Rules)
+                                         ├─► rules.py (16 Heuristic Rules)
                                          └─► Amazon CloudWatch (Sanitized Logs)
 ```
 
@@ -46,9 +47,13 @@ For the complete architectural design and Mermaid flowcharts, see [docs/ARCHITEC
 - **Python** (3.10+)
 
 ### 2. Run the Automated Backend Tests
-Run all 20 automated unit tests covering all rules, scoring boundaries, and Lambda event formats:
+Run all 36 automated unit tests covering all rules, scoring boundaries, browser-equivalent parsing, and Lambda event formats:
 ```bash
 python -m unittest discover -s backend/tests -p "test_*.py" -v
+```
+Check that the offline simulation still matches the Python backend:
+```bash
+cd frontend && npm install && npm run verify:parity
 ```
 
 ### 3. Start the Local Python Server
@@ -58,14 +63,22 @@ python backend/local_server.py
 ```
 *Server starts on `http://127.0.0.1:8000`.*
 
-### 4. Start the React Frontend
+### 4. Point the Frontend at the Backend
+Create `frontend/.env` from the example file. It already points to the local server (`http://127.0.0.1:8000`):
+```bash
+cp frontend/.env.example frontend/.env        # macOS / Linux
+copy frontend\.env.example frontend\.env      # Windows
+```
+> **Skip this step and the site still runs, but only in offline simulation:** the badge in the top-right shows *Offline Simulation* and no request ever reaches the Python backend. For a demo of the real backend, the badge must show **Backend Active**.
+
+### 5. Start the React Frontend
 In a separate terminal window:
 ```bash
 cd frontend
 npm install
 npm run dev
 ```
-Open **`http://localhost:5173`** in your browser.
+Open **`http://localhost:5173`** in your browser and check that the badge shows **Backend Active**.
 
 ---
 
@@ -85,10 +98,13 @@ qrshield/
 ├── backend/                      # Python AWS Lambda Backend
 │   ├── lambda_function.py        # Lambda handler with CORS & CloudWatch logging
 │   ├── url_analyzer.py           # Analysis orchestrator & risk scoring engine
-│   ├── rules.py                  # 12 static heuristic security rules
+│   ├── rules.py                  # 16 static heuristic security rules
 │   ├── local_server.py           # Offline development HTTP server
 │   └── tests/
-│       └── test_analyzer.py      # 20 automated unit tests
+│       ├── test_analyzer.py      # 35 rule, scoring & Lambda handler tests
+│       ├── test_parity.py        # Shared parity cases (Python side)
+│       └── parity_cases.json     # 48 cases checked against both engines
+├── sample_qr_codes/              # 8 sample QR images matching the UI presets
 ├── docs/                         # Comprehensive Documentation
 │   ├── ARCHITECTURE.md                  # System architecture & Mermaid diagrams
 │   ├── IMPLEMENTATION.md                # Technical code walkthrough & rule weights
@@ -106,9 +122,11 @@ qrshield/
 
 To deploy QRShield onto AWS Lambda with an HTTPS Function URL:
 1. Review the step-by-step instructions in [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
-2. Package the backend: `Compress-Archive -Path lambda_function.py, url_analyzer.py, rules.py -DestinationPath qrshield_backend.zip`
+2. Package the backend (from `backend/`):
+   - macOS / Linux: `zip qrshield_backend.zip lambda_function.py url_analyzer.py rules.py`
+   - Windows PowerShell: `Compress-Archive -Path lambda_function.py, url_analyzer.py, rules.py -DestinationPath qrshield_backend.zip`
 3. Upload to AWS Lambda (Runtime: Python 3.12, Memory: 128 MB, Handler: `lambda_function.lambda_handler`).
-4. Enable **Function URL** with `Auth type: NONE` and configure CORS.
+4. Enable **Function URL** with `Auth type: NONE` and configure CORS (allow `GET`, `POST`, `OPTIONS`).
 5. Point `VITE_API_BASE_URL` in `frontend/.env` to your new Function URL.
 
 ---
