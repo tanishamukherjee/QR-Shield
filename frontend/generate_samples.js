@@ -1,8 +1,10 @@
 import QRCode from 'qrcode';
 import fs from 'fs';
 import path from 'path';
+import { fileURLToPath } from 'url';
 
-const outDir = path.resolve('../sample_qr_codes');
+// Resolved from this script's location, so it works from any working directory
+const outDir = fileURLToPath(new URL('../sample_qr_codes/', import.meta.url));
 if (!fs.existsSync(outDir)) {
   fs.mkdirSync(outDir, { recursive: true });
 }

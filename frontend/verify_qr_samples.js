@@ -2,8 +2,10 @@ import fs from 'fs';
 import path from 'path';
 import { PNG } from 'pngjs';
 import jsQR from 'jsqr';
+import { fileURLToPath } from 'url';
 
-const sampleDir = path.resolve('../sample_qr_codes');
+// Resolved from this script's location, so it works from any working directory
+const sampleDir = fileURLToPath(new URL('../sample_qr_codes/', import.meta.url));
 const files = fs.readdirSync(sampleDir).filter(f => f.endsWith('.png'));
 
 console.log(`Verifying QR decoding on ${files.length} sample images using jsQR:`);

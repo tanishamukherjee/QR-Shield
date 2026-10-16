@@ -7,7 +7,9 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "verify:parity": "node verify_parity.js"
+    "verify:parity": "node verify_parity.js",
+    "samples:generate": "node generate_samples.js",
+    "samples:verify": "node verify_qr_samples.js"
   },
   "dependencies": {
     "jsqr": "^1.4.0",

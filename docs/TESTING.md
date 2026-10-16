@@ -95,7 +95,7 @@ A critical security principle is **reproducibility**. An identical URL submitted
 
 ## 4. Sample QR Code Image Verification (`verify_qr_samples.js`)
 
-To ensure client-side QR image parsing works reliably with real pixel data, the eight QR PNG files in `sample_qr_codes/` were tested directly against `jsQR` (`cd frontend && node verify_qr_samples.js`):
+To ensure client-side QR image parsing works reliably with real pixel data, the eight QR PNG files in `sample_qr_codes/` were tested directly against `jsQR` (`npm --prefix frontend run samples:verify` from the project root, or `npm run samples:verify` inside `frontend/`; regenerate the images with `samples:generate`):
 
 | Sample Image File | Decoded URL Payload | UI Preset | jsQR Decode Status |
 |---|---|---|---|
