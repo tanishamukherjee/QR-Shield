@@ -1,6 +1,7 @@
 import React, { useState, useRef } from 'react';
-import { Upload, QrCode, Globe, AlertCircle, FileImage, X, Zap } from 'lucide-react';
+import { Upload, QrCode, Globe, AlertCircle, FileImage, X, Zap, Camera } from 'lucide-react';
 import { decodeQrFromImage, validateScannedUrl } from '../utils/qrDecoder';
+import CameraScanner from './CameraScanner';
 
 const PRESETS = [
   { label: 'Safe HTTPS', url: 'https://www.cambridge.org/research' },
@@ -18,6 +19,7 @@ export default function Scanner({ onUrlExtracted, isLoading, error, onErrorClear
   const [selectedFile, setSelectedFile] = useState(null);
   const [isDecoding, setIsDecoding] = useState(false);
   const [manualUrl, setManualUrl] = useState('');
+  const [isCameraOpen, setIsCameraOpen] = useState(false);
   const fileInputRef = useRef(null);
 
   const handleDrag = (e) => {
@@ -33,6 +35,7 @@ export default function Scanner({ onUrlExtracted, isLoading, error, onErrorClear
   const processFile = async (file) => {
     if (!file) return;
     onErrorClear();
+    setIsCameraOpen(false);
     setSelectedFile(file);
     setIsDecoding(true);
 
@@ -68,6 +71,7 @@ export default function Scanner({ onUrlExtracted, isLoading, error, onErrorClear
   const handleManualSubmit = (e) => {
     e.preventDefault();
     onErrorClear();
+    setIsCameraOpen(false);
     if (!manualUrl.trim()) return;
 
     try {
@@ -81,12 +85,37 @@ export default function Scanner({ onUrlExtracted, isLoading, error, onErrorClear
   const handlePresetClick = (presetUrl) => {
     setManualUrl(presetUrl);
     onErrorClear();
+    setIsCameraOpen(false);
     try {
       const validUrl = validateScannedUrl(presetUrl);
       onUrlExtracted(validUrl, 'preset');
     } catch (err) {
       onUrlExtracted(null, 'error', err.message);
     }
+  };
+
+  const handleOpenCamera = (e) => {
+    e.stopPropagation();
+    onErrorClear();
+    setSelectedFile(null);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+    setIsCameraOpen(true);
+  };
+
+  // A QR code was found in the live camera feed: same checks as an uploaded image
+  const handleCameraDetected = (decodedText) => {
+    setIsCameraOpen(false);
+    try {
+      const validUrl = validateScannedUrl(decodedText);
+      onUrlExtracted(validUrl, 'camera');
+    } catch (err) {
+      onUrlExtracted(null, 'error', err.message);
+    }
+  };
+
+  const handleCameraError = (message) => {
+    setIsCameraOpen(false);
+    onUrlExtracted(null, 'error', message);
   };
 
   const handleClearSelected = () => {
@@ -102,44 +131,63 @@ export default function Scanner({ onUrlExtracted, isLoading, error, onErrorClear
         <h3>Scan QR Code for Embedded Threats</h3>
       </div>
       <p className="card-subtitle">
-        Upload an image containing a QR code. Decoding is performed client-side in your browser for privacy.
+        Upload an image or scan with your camera. Decoding is performed client-side in your browser for privacy.
       </p>
 
-      {/* Drag & Drop Zone */}
-      <div
-        className={`dropzone ${dragActive ? 'drag-active' : ''}`}
-        onDragEnter={handleDrag}
-        onDragOver={handleDrag}
-        onDragLeave={handleDrag}
-        onDrop={handleDrop}
-        onClick={() => fileInputRef.current?.click()}
-      >
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="image/png, image/jpeg, image/webp"
-          style={{ display: 'none' }}
-          onChange={handleFileChange}
-          disabled={isLoading}
+      {/* Live camera scanner replaces the drop zone while it is open */}
+      {isCameraOpen ? (
+        <CameraScanner
+          onDetected={handleCameraDetected}
+          onError={handleCameraError}
+          onClose={() => setIsCameraOpen(false)}
         />
-        <div className="dropzone-icon">
-          <Upload size={28} />
-        </div>
-        <div className="dropzone-title">Drag & drop QR image here</div>
-        <div className="dropzone-hint">Supports PNG, JPEG, or WebP (Max 5 MB)</div>
-        <button
-          type="button"
-          className="btn-upload"
-          disabled={isLoading}
-          onClick={(e) => {
-            e.stopPropagation();
-            fileInputRef.current?.click();
-          }}
+      ) : (
+        <div
+          className={`dropzone ${dragActive ? 'drag-active' : ''}`}
+          onDragEnter={handleDrag}
+          onDragOver={handleDrag}
+          onDragLeave={handleDrag}
+          onDrop={handleDrop}
+          onClick={() => fileInputRef.current?.click()}
         >
-          <FileImage size={16} />
-          Browse Files
-        </button>
-      </div>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/png, image/jpeg, image/webp"
+            style={{ display: 'none' }}
+            onChange={handleFileChange}
+            disabled={isLoading}
+          />
+          <div className="dropzone-icon">
+            <Upload size={28} />
+          </div>
+          <div className="dropzone-title">Drag & drop QR image here</div>
+          <div className="dropzone-hint">Supports PNG, JPEG, or WebP (Max 5 MB)</div>
+          <div className="dropzone-actions">
+            <button
+              type="button"
+              className="btn-upload"
+              disabled={isLoading}
+              onClick={(e) => {
+                e.stopPropagation();
+                fileInputRef.current?.click();
+              }}
+            >
+              <FileImage size={16} />
+              Browse Files
+            </button>
+            <button
+              type="button"
+              className="btn-camera"
+              disabled={isLoading}
+              onClick={handleOpenCamera}
+            >
+              <Camera size={16} />
+              Scan with Camera
+            </button>
+          </div>
+        </div>
+      )}
 
       {selectedFile && (
         <div className="file-preview">

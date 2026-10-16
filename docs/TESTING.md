@@ -67,6 +67,9 @@ OK
 | Test Case | Interaction Steps | Expected Result |
 |---|---|---|
 | **Valid QR Upload** | Upload PNG containing `https://example.com` | Canvas decodes QR instantly, extracts URL, displays Low risk results. |
+| **Camera Scan** | Click "Scan with Camera", allow access, show a QR code | Live preview with a target square; the code is detected, the camera switches off and the result appears. |
+| **Camera Cancel / Tab Switch** | Open the camera, then click Cancel, change tab or switch browser tab | The camera switches off immediately (the camera light goes out). |
+| **Camera Denied / Missing** | Block the camera prompt, or use a device with no camera | Friendly message suggesting an image upload; the drop zone returns. |
 | **Non-QR Image** | Upload JPEG of a landscape without a QR code | Displays friendly error: *"No QR code detected in this image."* |
 | **Oversized File** | Upload image exceeding 5 MB | Client validator rejects upload immediately with clear file-size alert. |
 | **Invalid MIME Type** | Upload `.txt` or `.exe` file | Client rejects file with *"Unsupported image format"* message. |
@@ -109,6 +112,35 @@ To ensure client-side QR image parsing works reliably with real pixel data, the 
 | `08_lookalike_domain.png` | `https://paypa1.com/login` | Look-alike Domain | PASS |
 
 All 8 sample QR images decode with 100% accuracy via `jsQR`.
+
+---
+
+## 4b. Camera Scanner Verification
+
+The camera scanner was tested end to end in Google Chrome using Chrome's fake-camera mode, which plays a video file as the camera feed. The test videos showed the PayPal phishing QR code, a `tel:` QR code and an empty scene. 26 automated checks passed on the production build:
+
+| Area | Checks |
+|---|---|
+| Detection | QR code in the feed detected and analyzed (70 High), sent to the backend exactly once, added to History, scanner reusable for a second scan |
+| Validation | `tel:` QR code from the camera rejected with the usual message, nothing sent to the backend |
+| No false positives | Empty scene keeps scanning without inventing a result |
+| Camera switched off | After detection, on Cancel, on changing app tab, when the page is hidden, and when a preset is used while scanning (no live camera tracks remain) |
+| Errors | Permission denied, no camera, and browsers without camera support / non-HTTPS pages each show a friendly message |
+| Layout | Buttons and camera panel fit a 390 px phone screen with no sideways scrolling |
+| Console | No errors |
+
+---
+
+## 4c. Continuous Integration (GitHub Actions)
+
+`.github/workflows/ci.yml` runs on every push and pull request on a fresh **Ubuntu Linux** machine:
+
+| Job | Steps |
+|---|---|
+| **Backend tests (Python 3.12)** | `python -m unittest discover -s backend/tests -p "test_*.py" -v` |
+| **Frontend build & checks (Node 20)** | `npm ci` → `npm run build` → `npm run verify:parity` → `npm run samples:verify` |
+
+Linux file names are case-sensitive (like Amplify's build servers), so the build fails on import mistakes that macOS and Windows hide. This was verified by rehearsing the workflow on a case-sensitive disk: the current code passes every step, and reintroducing the old `import jsQR from 'jsQR'` makes the build fail with *Rollup failed to resolve import "jsQR"*.
 
 ---
 

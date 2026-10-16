@@ -12,7 +12,8 @@ qrshield/
 │   ├── src/
 │   │   ├── components/
 │   │   │   ├── Navbar.jsx           # Application header & live backend status badge
-│   │   │   ├── Scanner.jsx          # Drag-and-drop QR decoder, manual link tester & 8 demo presets
+│   │   │   ├── Scanner.jsx          # Drag-and-drop QR decoder, camera button, manual link tester & 8 demo presets
+│   │   │   ├── CameraScanner.jsx    # Live camera QR scanner (getUserMedia + jsQR, camera auto-off)
 │   │   │   ├── DecodedUrlPanel.jsx  # Safe link preview with copy action
 │   │   │   ├── AnalysisResults.jsx  # Score gauge, findings cards, precautions
 │   │   │   ├── ScanHistory.jsx      # Bounded local storage history list (view saved results)
@@ -22,7 +23,7 @@ qrshield/
 │   │   │   ├── api.js               # Fetch client & health check for AWS Lambda Function URL
 │   │   │   └── mockAnalyzer.js      # Offline client simulation engine (mirrors rules.py)
 │   │   ├── utils/
-│   │   │   ├── qrDecoder.js         # jsQR canvas image decoding & URL validation
+│   │   │   ├── qrDecoder.js         # jsQR decoding for images & camera frames, URL validation
 │   │   │   └── historyStorage.js    # Sanitized localStorage manager
 │   │   ├── App.jsx                  # Main view container & state coordinator
 │   │   ├── App.css                  # Responsive design system & animations
@@ -53,6 +54,7 @@ qrshield/
 │   ├── TESTING.md                   # Test cases, edge conditions, test report
 │   ├── DEPLOYMENT.md                # AWS Lambda Function URL deployment guide
 │   └── PRESENTATION_OUTLINE.md      # 7–8 minute presentation script
+├── .github/workflows/ci.yml       # GitHub Actions: tests, build & checks on every push (Linux)
 ├── .gitignore
 └── README.md
 ```
@@ -200,4 +202,5 @@ The score is 70 because the raw sum is 40 (10 + 30) and the CRITICAL finding rai
 
 - **Backend status badge:** set from the `GET /` health check on load and updated after every scan (*Checking…*, *Backend Active*, *Backend Unreachable · Simulation*, *Offline Simulation*).
 - **Offline simulation:** if the backend is unreachable or not configured, `mockAnalyzer.js` runs the same 16 rules in the browser and the result is clearly labelled as a simulation.
+- **Camera scanning:** "Scan with Camera" asks for camera permission (`getUserMedia`, rear camera preferred on phones), then reads about 5 frames per second with `jsQR` on an off-screen canvas. When a code is found the camera is switched off and the text goes through the same `validateScannedUrl` → backend flow as an uploaded image. The camera is also switched off on Cancel, when the user changes tab, when the page is hidden (tab switch / phone locked), or when another input method is used. Browsers only allow cameras on HTTPS pages (or `localhost`), which Amplify provides.
 - **History:** each entry stores the full result with the URL sanitized (credentials removed, query replaced). "View Result" shows that saved result; it does not rescan, because the sanitized URL is not the original link.

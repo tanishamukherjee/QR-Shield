@@ -109,6 +109,7 @@ QRShield implements rigorous security controls across every tier of the applicat
 - **Problem:** Conventional QR scanning services require users to upload images to backend servers or storage buckets (e.g., Amazon S3). This exposes private photos, personal badges, and confidential documents to cloud breaches.
 - **QRShield Solution:** Image decoding is performed **entirely in browser memory** using HTML5 Canvas and `jsQR`.
 - **Guarantee:** Image pixel data is **never transmitted across the network**, never written to disk, and never stored in any cloud repository.
+- **Camera scanning:** live camera frames are decoded the same way, in browser memory only. The browser asks for permission first, and QRShield switches the camera off as soon as a code is found, on Cancel, or when the user leaves the page.
 
 ### B. Prevention of Server-Side Request Forgery (SSRF) & Blind Probing
 - **Problem:** Many threat scanners automatically follow redirects or retrieve the webpage HTML to inspect content. This allows malicious actors to weaponize the scanner as an open proxy, probe internal AWS metadata endpoints (`http://169.254.169.254/`), or alert the attacker that their phishing link is being analyzed.

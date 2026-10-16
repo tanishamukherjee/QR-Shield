@@ -23,7 +23,7 @@ QRShield is a serverless, privacy-preserving cybersecurity web application desig
 ```mermaid
 flowchart TD
     subgraph Client["Client Browser (React + Vite)"]
-        A["User Uploads QR Image (PNG/JPEG/WebP)"] --> B["HTML5 Canvas Ingestion"]
+        A["User Uploads QR Image (PNG/JPEG/WebP) or Scans with Camera"] --> B["HTML5 Canvas Ingestion"]
         B --> C["Client-side Decoder (jsQR)"]
         C --> D{"Valid HTTP(S) URL?"}
         D -- No --> E["Display Error / Reject"]
@@ -58,8 +58,8 @@ flowchart TD
 
 | Step | Component | Action | Privacy & Security Controls |
 |---|---|---|---|
-| **1** | Frontend | User drops QR image into browser | Client validates MIME type & enforces 5 MB limit. |
-| **2** | Browser Engine | Canvas extracts pixel data & runs `jsQR` | Image pixels remain strictly local in memory. |
+| **1** | Frontend | User drops a QR image into the browser, or scans it with the camera | Client validates MIME type & enforces 5 MB limit; camera access needs the user's permission and HTTPS. |
+| **2** | Browser Engine | Canvas extracts pixel data (image or camera frame) & runs `jsQR` | Pixels remain strictly local in memory; the camera switches off once a code is found. |
 | **3** | URL Validator | Regex & RFC parser checks scheme | Rejects non-HTTP(S) schemes (`javascript:`, `tel:`, `file:`). |
 | **4** | HTTPS Transport | Browser dispatches POST request | Lambda Function URL with strict CORS headers. |
 | **5** | AWS Lambda | `lambda_function.py` parses event | Sanitizes query parameters and redacts credentials before logging. |

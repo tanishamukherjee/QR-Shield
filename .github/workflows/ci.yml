@@ -1,0 +1,54 @@
+# QRShield - Continuous Integration
+# Runs every check on a fresh Linux machine for each push and pull request.
+# Linux has case-sensitive file names (like Amplify's build servers), so it catches
+# mistakes such as importing 'jsQR' instead of 'jsqr' that a Mac would hide.
+
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  backend:
+    name: Backend tests (Python 3.12)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Run backend unit tests
+        run: python -m unittest discover -s backend/tests -p "test_*.py" -v
+
+  frontend:
+    name: Frontend build & checks (Node 20)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Production build
+        run: npm run build
+
+      - name: Offline simulation matches the Python backend
+        run: npm run verify:parity
+
+      - name: Sample QR images decode with jsQR
+        run: npm run samples:verify

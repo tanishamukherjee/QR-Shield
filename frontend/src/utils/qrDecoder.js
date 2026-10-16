@@ -3,6 +3,52 @@ import jsQR from 'jsqr';
 const ALLOWED_MIME_TYPES = ['image/png', 'image/jpeg', 'image/jpg', 'image/webp'];
 const MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024; // 5 MB
 const MAX_URL_LENGTH = 2048; // matches the backend limit
+const MAX_VIDEO_SCAN_WIDTH = 640; // camera frames are scaled down before decoding for speed
+
+/**
+ * Decodes a QR code from the current frame of a live <video> element.
+ * The frame is drawn onto an off-screen canvas and read locally with jsQR;
+ * it never leaves the browser. Returns the QR text, or null if none is visible yet.
+ */
+export function decodeQrFromVideoFrame(video, canvas) {
+  if (!video || video.readyState < 2 || !video.videoWidth) {
+    return null; // camera is not delivering frames yet
+  }
+
+  const scale = Math.min(1, MAX_VIDEO_SCAN_WIDTH / video.videoWidth);
+  const width = Math.round(video.videoWidth * scale);
+  const height = Math.round(video.videoHeight * scale);
+  if (canvas.width !== width || canvas.height !== height) {
+    canvas.width = width;
+    canvas.height = height;
+  }
+
+  const ctx = canvas.getContext('2d', { willReadFrequently: true });
+  ctx.drawImage(video, 0, 0, width, height);
+  const imageData = ctx.getImageData(0, 0, width, height);
+  const code = jsQR(imageData.data, width, height, { inversionAttempts: 'attemptBoth' });
+
+  return code && code.data && code.data.trim() ? code.data.trim() : null;
+}
+
+/**
+ * Turns a getUserMedia error into a plain-language message.
+ */
+export function getCameraErrorMessage(err) {
+  switch (err && err.name) {
+    case 'NotAllowedError':
+    case 'SecurityError':
+      return 'Camera access was denied. Allow camera access in your browser settings, or upload an image instead.';
+    case 'NotFoundError':
+    case 'OverconstrainedError':
+      return 'No camera was found on this device. Please upload an image instead.';
+    case 'NotReadableError':
+    case 'AbortError':
+      return 'The camera is already in use by another app. Close that app and try again, or upload an image instead.';
+    default:
+      return `Could not start the camera (${(err && err.message) || 'unknown error'}). Please upload an image instead.`;
+  }
+}
 
 /**
  * Validates file format and size constraints.

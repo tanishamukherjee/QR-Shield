@@ -1,6 +1,7 @@
 # QRShield — Cloud-Based QR Code Threat Detection System
 
 [![Python Tests](https://img.shields.io/badge/Python%20Tests-36%2F36%20Passing-brightgreen)](docs/TESTING.md)
+[![CI](https://img.shields.io/badge/CI-GitHub%20Actions-2088FF?logo=githubactions&logoColor=white)](https://github.com/tanishamukherjee/QR-Shield/actions/workflows/ci.yml)
 [![Frontend](https://img.shields.io/badge/Frontend-React%20%2B%20Vite-blue)](frontend/)
 [![Architecture](https://img.shields.io/badge/Cloud-AWS%20Lambda%20Serverless-orange)](docs/ARCHITECTURE.md)
 [![Live](https://img.shields.io/badge/Live-AWS%20Amplify-success)](https://main.d3pk8ae3axmish.amplifyapp.com)
@@ -16,6 +17,7 @@ Hosted on **AWS Amplify**, with the threat engine running on **AWS Lambda** (Syd
 ## 🌟 Key Highlights
 
 - **🔒 Client-Side Privacy (Zero-Knowledge Ingestion):** QR code image decoding runs 100% locally in the browser using HTML5 Canvas and `jsQR`. Images are **never** uploaded to servers or stored on disks.
+- **📷 Live Camera Scanning:** Click **Scan with Camera** and point a phone or laptop camera at a QR code. Frames are decoded in the browser, and the camera switches off as soon as a code is found.
 - **⚡ AWS Serverless Backend:** Runs on **AWS Lambda** via a direct **Function URL**, with the frontend on **AWS Amplify Hosting**. Zero EC2 servers, zero idle costs, and automatic scale-to-zero.
 - **🛡️ 16 Deterministic Threat Rules:** Inspects unencrypted HTTP, embedded credentials, raw and disguised IP hosts, custom ports, URL shorteners, brand spoofing, look-alike (typosquatted) brand names, international look-alike characters, and excessive subdomain hierarchies.
 - **🌐 Browser-Equivalent Parsing:** Reads each URL exactly as a browser would (backslash tricks, decimal/hex IPs, punycode), so the analysis matches the real destination.
@@ -59,6 +61,8 @@ Check that the offline simulation still matches the Python backend:
 ```bash
 cd frontend && npm install && npm run verify:parity
 ```
+
+> **Automatic checks (CI):** every push and pull request runs all of these checks on a fresh Linux machine with GitHub Actions ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)): backend unit tests, a production build, the parity check and the sample-QR check. Results appear as a ✓ or ✗ next to each commit and in the [Actions tab](https://github.com/tanishamukherjee/QR-Shield/actions). Linux file names are case-sensitive, so CI catches import mistakes (such as `'jsQR'` vs `'jsqr'`) that a Mac or Windows machine hides.
 
 ### 3. Start the Local Python Server
 To run the serverless backend locally using Python's standard library (no extra packages needed):
@@ -116,6 +120,7 @@ qrshield/
 │   ├── TESTING.md                       # Test matrix, results & verification
 │   ├── DEPLOYMENT.md                    # AWS Lambda Function URL step-by-step guide
 │   └── PRESENTATION_OUTLINE.md          # 7–8 minute college presentation script
+├── .github/workflows/ci.yml     # GitHub Actions: tests & build on every push
 ├── .gitignore
 └── README.md
 ```

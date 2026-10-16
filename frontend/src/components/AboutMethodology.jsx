@@ -33,8 +33,8 @@ export default function AboutMethodology() {
             <span>Client-Side Privacy</span>
           </div>
           <div className="method-desc">
-            QR images are decoded locally inside the browser using HTML5 Canvas and <code>jsQR</code>.
-            Image files are <strong>never uploaded to the cloud or stored on disks</strong>. Only the
+            QR images and live camera frames are decoded locally inside the browser using HTML5 Canvas and <code>jsQR</code>.
+            Images and video are <strong>never uploaded to the cloud or stored on disks</strong>, and the camera switches off as soon as a code is found. Only the
             extracted URL payload is transmitted to the serverless analyzer.
           </div>
         </div>
